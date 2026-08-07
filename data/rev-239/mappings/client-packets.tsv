@@ -1,0 +1,123 @@
+# Client packets: rev239
+# count: 117
+# named: 101
+# client_table_size: 117
+# columns: id\tname\tlength\twrite_count\tfields
+# field_format: writeType[byteEncodings](obfuscatedMethodName)
+0	OPNPC6	2	1	W2[r 8,v](bd)
+1	SEND_PING_REPLY	10	4	W4[r 16,r 24,v,r 8](et),W4[r 24,r 16,v,r 8](dx),W1[a 128](dw),W1[s 0](di)
+2	CLANSETTINGS_FULL_REQUEST	1	1	W1[v](bw)
+3	OPPLAYER2	3	2	W2[v,r 8](el),W1[s 0](di)
+4	IDLE	0	0	-
+5	EXIT_FREECAM	0	0	-
+6	EVENT_NATIVE_MOUSE_MOVE	-1	0	-
+7	OPOBJ3_V2	8	5	W1[a 128](dw),W2[v,r 8](el),W2[a 128,r 8](ey),W1[a 128](dw),W2[r 8,a 128](ev)
+8	EVENT_CAMERA_POSITION	4	2	W2[v,r 8](el),W2[a 128,r 8](ey)
+9	IGNORELIST_DEL	-1	2	W1[v](bw),W1[strn](ce)
+10	WINDOW_STATUS	5	3	W1[v](bw),W2[r 8,v](bd),W2[r 8,v](bd)
+11	-	7	0	-
+12	REFLECTION_CHECK_REPLY	-1	2	W1[v](bw),W1[v](ch)
+13	OPNPC2_V2	4	3	W2[a 128,r 8](ey),W1[s 0](di),W1[s 128](dz)
+14	OPWORLDENTITY1	3	2	W2[v,r 8](el),W1[s 128](dz)
+15	OPLOC4_V2	8	5	W1[a 128](dw),W2[v,r 8](el),W2[a 128,r 8](ey),W1[s 0](di),W2[r 8,v](bd)
+16	EVENT_MOUSE_SCROLL	2	1	W2[r 8,v](bd)
+17	HISCORE_REQUEST	-1	0	-
+18	-	3	0	-
+19	OPNPC3_V2	4	3	W1[s 0](di),W1[s 128](dz),W2[r 8,a 128](ev)
+20	FRIENDCHAT_JOIN_LEAVE	-1	2	W1[v](bw),W1[strn](ce)
+21	-	3	0	-
+22	OPPLAYER7	3	2	W1[v](bw),W2[r 8,v](bd)
+23	OPNPCU	11	5	W4[r 8,v,r 16,r 24](ek),W2[r 8,a 128](ev),W1[v](bw),W2[v,r 8](el),W2[r 8,a 128](ev)
+24	MAP_BUILD_COMPLETE	0	0	-
+25	-	7	0	-
+26	RESUME_P_NAMEDIALOG	-1	2	W1[v](bw),W1[strn](ce)
+27	IF_BUTTONT	16	6	W4[r 24,r 16,v,r 8](dx),W2[r 8,a 128](ev),W2[a 128,r 8](ey),W2[v,r 8](el),W2[r 8,a 128](ev),W4[r 8,v,r 16,r 24](ek)
+28	FRIENDLIST_ADD	-1	2	W1[v](bw),W1[strn](ce)
+29	EVENT_APPLET_FOCUS	1	1	W1[v](bw)
+30	-	7	0	-
+31	OPOBJ4_V2	8	5	W1[s 128](dz),W2[r 8,v](bd),W2[r 8,v](bd),W2[v,r 8](el),W1[s 0](di)
+32	RESUME_P_OBJDIALOG	2	1	W2[r 8,v](bd)
+33	DETECT_MODIFIED_CLIENT	4	1	W4[r 24,r 16,v,r 8](dx)
+34	CLIENT_CHEAT	-1	2	W1[v](bw),W1[strn](ce)
+35	EVENT_MOUSE_CLICK_V2	7	4	W2[r 8,a 128](ev),W2[a 128,r 8](ey),W2[r 8,a 128](ev),W1[s 128](dz)
+36	-	7	0	-
+37	OPPLAYER4	3	2	W2[r 8,v](bd),W1[v](bw)
+38	CLANCHANNEL_KICKUSER	-1	4	W1[v](bw),W1[v](bw),W2[r 8,v](bd),W1[strn](ce)
+39	SOUND_JINGLEEND	4	1	W4[r 24,r 16,v,r 8](dx)
+40	IF_SUBOP	10	5	W4[r 24,r 16,v,r 8](dx),W2[r 8,v](bd),W2[r 8,v](bd),W1[v](bw),W1[v](bw)
+41	-	3	0	-
+42	-	7	0	-
+43	OPOBJ5_V2	8	5	W1[s 0](di),W2[r 8,a 128](ev),W2[r 8,v](bd),W2[a 128,r 8](ey),W1[a 128](dw)
+44	SET_HEADING	1	1	W1[v](bw)
+45	OPNPC4_V2	4	4	W4[r 24,r 16,v,r 8](dx),W4[r 16,r 24,v,r 8](et),W4[v,r 8,r 16,r 24](eb),W2[r 8,v](cu)
+46	OPOBJ1_V2	8	5	W2[r 8,a 128](ev),W1[s 128](dz),W2[r 8,a 128](ev),W1[s 128](dz),W2[r 8,v](bd)
+47	IF_BUTTONX	9	4	W4[r 24,r 16,v,r 8](dx),W2[r 8,v](bd),W2[r 8,v](bd),W1[v](bw)
+48	IF_BUTTOND	16	6	W4[v,r 8,r 16,r 24](eb),W2[v,r 8](el),W2[a 128,r 8](ey),W4[r 24,r 16,v,r 8](dx),W2[r 8,a 128](ev),W2[r 8,a 128](ev)
+49	-	3	0	-
+50	TELEPORT	9	4	W4[r 24,r 16,v,r 8](dx),W1[a 128](dw),W2[r 8,v](bd),W2[r 8,a 128](ev)
+51	IF_BUTTON	4	1	W4[r 24,r 16,v,r 8](dx)
+52	OPLOCU	15	7	W4[r 8,v,r 16,r 24](ek),W2[a 128,r 8](ey),W2[r 8,v](bd),W2[a 128,r 8](ey),W2[v,r 8](el),W2[a 128,r 8](ey),W1[s 0](di)
+53	OPPLAYER8	3	2	W2[r 8,v](bd),W1[s 0](di)
+54	EVENT_KEYBOARD	-2	3	W2[r 8,v](bd),W1[s 0](di),W3[v,r 16,r 8](ed)
+55	FRIENDCHAT_SETRANK	-1	3	W1[v](bw),W1[s 128](dz),W1[strn](ce)
+56	IF_SCRIPT_TRIGGER	-2	5	W2[r 8,v](bd),W2[a 128,r 8](ey),W2[r 8,v](bd),W4[v,r 8,r 16,r 24](eb),W4[v,r 8,r 16,r 24](eb)
+57	OPPLAYER5	3	2	W1[s 128](dz),W2[r 8,v](bd)
+58	OPOBJ6	6	3	W2[r 8,a 128](ev),W2[v,r 8](el),W2[v,r 8](el)
+59	SET_CHATFILTERSETTINGS	3	3	W1[v](bw),W1[v](bw),W1[v](bw)
+60	SEND_SNAPSHOT	-1	4	W1[v](bw),W1[strn](ce),W1[v](bw),W1[v](bw)
+61	MEMBERSHIP_PROMOTION_ELIGIBILITY	2	0	-
+62	OPLOCT	15	7	W1[s 0](di),W2[r 8,a 128](ev),W2[v,r 8](el),W4[v,r 8,r 16,r 24](eb),W2[a 128,r 8](ey),W2[v,r 8](el),W2[v,r 8](el)
+63	RESUME_P_COUNTDIALOG_LONG	8	1	W8[v,v,v,v,v,v,v,v](cf)
+64	RESUME_P_STRINGDIALOG	-1	2	W1[v](bw),W1[strn](ce)
+65	FRIENDLIST_DEL	-1	2	W1[v](bw),W1[strn](ce)
+66	EVENT_MOUSE_CLICK_V1	6	0	-
+67	MOVE_MINIMAPCLICK	-1	5	W1[v](bw),W2[v,r 8](el),W2[v,r 8](el),W1[s 128](dz),W1[v](bw)
+68	-	7	0	-
+69	MESSAGE_PUBLIC	-1	2	W1[v](bw),W1[v](bw)
+70	OPPLAYER6	3	2	W2[a 128,r 8](ey),W1[s 128](dz)
+71	-	3	0	-
+72	OPWORLDENTITYT	11	5	W2[r 8,a 128](ev),W4[r 8,v,r 16,r 24](ek),W2[a 128,r 8](ey),W2[a 128,r 8](ey),W1[s 0](di)
+73	OPLOC1_V2	8	5	W2[r 8,a 128](ev),W2[v,r 8](el),W1[a 128](dw),W1[a 128](dw),W2[r 8,v](bd)
+74	OPOBJ2_V2	8	5	W1[a 128](dw),W1[s 128](dz),W2[r 8,v](bd),W2[v,r 8](el),W2[a 128,r 8](ey)
+75	RESUME_P_COUNTDIALOG	4	1	W4[r 24,r 16,v,r 8](dx)
+76	OPOBJT	15	7	W2[v,r 8](el),W2[r 8,a 128](ev),W2[r 8,v](bd),W4[r 8,v,r 16,r 24](ek),W1[v](bw),W2[v,r 8](el),W2[r 8,v](bd)
+77	UPDATE_PLAYER_MODEL_V2	26	0	-
+78	OPLOC6	2	1	W2[v,r 8](el)
+79	OPPLAYERT	11	5	W2[r 8,a 128](ev),W1[a 128](dw),W2[a 128,r 8](ey),W4[r 8,v,r 16,r 24](ek),W2[r 8,v](bd)
+80	OPWORLDENTITY2	3	2	W2[r 8,a 128](ev),W1[a 128](dw)
+81	-	7	0	-
+82	IGNORELIST_ADD	-1	2	W1[v](bw),W1[strn](ce)
+83	OPWORLDENTITY4	3	2	W2[r 8,v](bd),W1[v](bw)
+84	AFFINEDCLANSETTINGS_ADDBANNED_FROMCHANNEL	-1	4	W1[v](bw),W1[v](bw),W2[r 8,v](bd),W1[strn](ce)
+85	OPNPC5_V2	4	3	W1[a 128](dw),W1[s 0](di),W2[r 8,a 128](ev)
+86	OPNPCT	11	5	W1[s 0](di),W2[r 8,v](bd),W2[r 8,a 128](ev),W2[r 8,v](bd),W4[r 24,r 16,v,r 8](dx)
+87	OPPLAYERU	11	5	W4[v,r 8,r 16,r 24](eb),W1[v](bw),W2[r 8,v](bd),W2[a 128,r 8](ey),W2[r 8,a 128](ev)
+88	-	7	0	-
+89	NO_TIMEOUT	0	0	-
+90	OPWORLDENTITYU	11	5	W2[r 8,v](bd),W2[r 8,v](bd),W2[v,r 8](el),W4[r 24,r 16,v,r 8](dx),W1[s 128](dz)
+91	IF_CRMVIEW_OP	22	6	W4[r 8,v,r 16,r 24](ek),W4[r 24,r 16,v,r 8](dx),W4[r 8,v,r 16,r 24](ek),W4[r 8,v,r 16,r 24](ek),W4[v,r 8,r 16,r 24](eb),W2[v,r 8](el)
+92	OPPLAYER3	3	2	W1[s 0](di),W2[a 128,r 8](ey)
+93	OPPLAYER1	3	2	W1[s 128](dz),W2[v,r 8](el)
+94	-	7	0	-
+95	CLOSE_MODAL	0	0	-
+96	AFFINEDCLANSETTINGS_SETMUTED_FROMCHANNEL	-1	4	W1[v](bw),W1[v](bw),W2[r 8,v](bd),W1[strn](ce)
+97	CONNECTION_TELEMETRY	-1	2	W1[v](bw),W1[v](ch)
+98	OPWORLDENTITY6	2	1	W2[a 128,r 8](ey)
+99	CLICKWORLDMAP	4	1	W4[v,r 8,r 16,r 24](eb)
+100	OPWORLDENTITY3	3	2	W2[r 8,v](bd),W1[s 128](dz)
+101	FRIENDCHAT_KICK	-1	2	W1[v](bw),W1[strn](ce)
+102	OPNPC1_V2	4	3	W2[v,r 8](el),W1[s 0](di),W1[s 128](dz)
+103	OPLOC2_V2	8	5	W2[a 128,r 8](ey),W2[a 128,r 8](ey),W2[r 8,v](bd),W1[s 0](di),W1[v](bw)
+104	OPLOC3_V2	8	5	W2[r 8,a 128](ev),W1[s 128](dz),W1[v](bw),W2[a 128,r 8](ey),W2[r 8,a 128](ev)
+105	RSEVEN_STATUS	1	0	-
+106	OPWORLDENTITY5	3	2	W1[a 128](dw),W2[r 8,a 128](ev)
+107	-	7	0	-
+108	BUG_REPORT	-2	4	W2[r 8,v](bd),W1[strn](ce),W1[v](bw),W1[strn](ce)
+109	-	7	0	-
+110	EVENT_MOUSE_MOVE	-1	1	W1[v](bw)
+111	MESSAGE_PRIVATE	-2	3	W2[r 8,v](bd),W1[strn](ce),W2[r 8,v](cu)
+112	CLANCHANNEL_FULL_REQUEST	1	1	W1[v](bw)
+113	OPOBJU	15	6	W2[v,r 8](el),W1[s 128](dz),W2[r 8,a 128](ev),W2[v,r 8](el),W4[r 16,r 24,v,r 8](et),W2[a 128,r 8](ey)
+114	MOVE_GAMECLICK	-1	4	W1[v](bw),W2[v,r 8](el),W2[v,r 8](el),W1[s 128](dz)
+115	RESUME_PAUSEBUTTON	6	2	W4[r 16,r 24,v,r 8](et),W2[r 8,v](bd)
+116	OPLOC5_V2	8	5	W2[a 128,r 8](ey),W2[v,r 8](el),W1[a 128](dw),W1[s 0](di),W2[r 8,v](bd)

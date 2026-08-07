@@ -1,0 +1,63 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'dev.rl.suite'
+version = '1.3.1'
+description = 'Fail-closed bytecode normalization for modern RuneLite injected-client artifacts.'
+
+base {
+    archivesName = 'rl-suite'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // api, not implementation: packet-analysis compiles against ASM types
+    // exposed by JarArchive and ClassUnit.
+    api "org.ow2.asm:asm:${asmVersion}"
+    api "org.ow2.asm:asm-tree:${asmVersion}"
+    api "org.ow2.asm:asm-commons:${asmVersion}"
+    api "org.ow2.asm:asm-analysis:${asmVersion}"
+    api "org.ow2.asm:asm-util:${asmVersion}"
+}
+
+// Compile on Java 11 whatever JVM launches Gradle.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    // Matches the Maven build's <parameters>true</parameters>.
+    options.compilerArgs << '-parameters'
+}
+
+// Executable fat JAR, replacing maven-shade-plugin. Attached as a classifier
+// so the plain library JAR is still produced.
+tasks.register('shadedJar', Jar) {
+    description = 'Builds the executable JAR with all runtime dependencies bundled.'
+    group = 'build'
+    archiveClassifier = 'all'
+    manifest {
+        attributes 'Main-Class': 'dev.rl.suite.Main'
+    }
+    from sourceSets.main.output
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/MANIFEST.MF'
+    exclude 'module-info.class'
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('shadedJar')
+}

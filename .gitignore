@@ -1,0 +1,17 @@
+/.gradle/
+/build/
+/transform-jar/build/
+/packet-analysis/build/
+/.idea/
+/.vscode/
+.DS_Store
+*.iml
+.classpath
+.project
+/.settings/
+
+# Fixture binaries are fetched or supplied locally; never commit them.
+/fixtures/
+
+# Generated analysis products.
+/out/
