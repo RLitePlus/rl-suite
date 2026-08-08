@@ -13,6 +13,7 @@ import dev.rl.suite.pipeline.TransformPass;
 import dev.rl.suite.pipeline.TransformationPlan;
 import dev.rl.suite.report.AuditReport;
 import dev.rl.suite.util.AuditPath;
+import dev.rl.suite.util.DecoderTable;
 import dev.rl.suite.util.Hashing;
 import dev.rl.suite.verify.ArchiveVerifier;
 import java.io.IOException;
@@ -51,6 +52,34 @@ public final class Deobfuscator
         }
 
         JarArchive archive = JarArchive.read(config.getInput());
+        // Before any pass runs: the renamer rewrites field names, and a decoder table
+        // keyed by the new names would be useless for reading the original client.
+        Map<String, DecoderTable.Decoder> decoders = DecoderTable.extract(archive);
+        Map<String, String> multipliers = new java.util.LinkedHashMap<>();
+        java.util.Map<DecoderTable.Confidence, Long> byConfidence = new java.util.EnumMap<>(
+            DecoderTable.Confidence.class);
+        Map<String, String> unproven = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, DecoderTable.Decoder> entry : decoders.entrySet())
+        {
+            if (entry.getValue().getConfidence() == DecoderTable.Confidence.INFERRED)
+            {
+                unproven.put(entry.getKey(), entry.getValue().getMultiplier());
+            }
+            else
+            {
+                multipliers.put(entry.getKey(), entry.getValue().getMultiplier());
+            }
+            byConfidence.merge(entry.getValue().getConfidence(), 1L, Long::sum);
+        }
+        report.putDecoders(multipliers);
+        report.putUnprovenDecoders(unproven);
+        report.putMetric("decoders.count", decoders.size());
+        report.putMetric("decoders.stated", byConfidence.getOrDefault(
+            DecoderTable.Confidence.STATED, 0L));
+        report.putMetric("decoders.proven", byConfidence.getOrDefault(
+            DecoderTable.Confidence.PROVEN, 0L));
+        report.putMetric("decoders.inferred", byConfidence.getOrDefault(
+            DecoderTable.Confidence.INFERRED, 0L));
         report.putMetric("archive.classes", archive.getClasses().size());
         report.putMetric("archive.resources", archive.getResources().size());
 

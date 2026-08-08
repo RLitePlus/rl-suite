@@ -19,6 +19,8 @@ public final class AuditReport
     private final Map<String, Long> metrics = new TreeMap<>();
     private final List<String> completedPasses = new ArrayList<>();
     private final List<String> warnings = new ArrayList<>();
+    private final Map<String, String> decoders = new TreeMap<>();
+    private final Map<String, String> decodersUnproven = new TreeMap<>();
 
     public void putMetadata(String key, String value)
     {
@@ -38,6 +40,32 @@ public final class AuditReport
             throw new IllegalArgumentException("Unknown metric: " + key);
         }
         return value;
+    }
+
+    /**
+     * Records the decode multiplier for every field the archive reads through one.
+     *
+     * <p>Emitted on every run rather than on request. A mapping that carries the wrong half of an
+     * encode/decode pair inverts every read of that field, and the only way to notice is to have the
+     * archive's own answer to compare against - which is worth nothing if you had to know to ask.
+     */
+    public void putDecoders(Map<String, String> values)
+    {
+        decoders.putAll(values);
+    }
+
+    /**
+     * Decoders supported by only one side of the encode/decode pair.
+     *
+     * <p>Kept apart from {@link #putDecoders} rather than merged, because the difference is not a
+     * matter of degree. A field read once can have its decoder folded together with whatever the
+     * result was about to be multiplied by, and the constant then matches neither multiplier - which
+     * is how {@code ServerPacket.length} reads as 348778223 when its decoder is 2031033909. Anything
+     * that must be right should use the proven table; this one is a lead.
+     */
+    public void putUnprovenDecoders(Map<String, String> values)
+    {
+        decodersUnproven.putAll(values);
     }
 
     public void passCompleted(String name)
@@ -88,6 +116,10 @@ public final class AuditReport
         appendStringList(out, "completedPasses", completedPasses, 2);
         out.append(",\n");
         appendStringList(out, "warnings", warnings, 2);
+        out.append(",\n");
+        appendStringMap(out, "decoders", decoders, 2);
+        out.append(",\n");
+        appendStringMap(out, "decodersUnproven", decodersUnproven, 2);
         out.append("\n}\n");
         return out.toString();
     }
