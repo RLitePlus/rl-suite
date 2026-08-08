@@ -297,6 +297,59 @@ This is not a small effect. Standing in size-matched but id-mismatched builds fo
 revisions 236 and 238 measured cross-revision accuracy at 7.7%; using the aligned
 builds and changing nothing else took the same measurement to 40.3%.
 
+## Finding the client fields RuneLite does not publish
+
+A launcher built on the injected client has to reach some fields by reflection,
+because RuneLite's API does not expose them: the selected scene tile, an actor's
+path length, the widget component table, the login statics. Their obfuscated
+names change every revision, and one obfuscated name can mean two different
+things two revisions apart — at 1.12.33 `dj` is `TileItem`, at 1.12.35 it is
+`PacketWriter`. Carrying a name forward is how you point a hook at the wrong
+class.
+
+```shell
+gradle :packet-analysis:shadedJar
+java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar --help
+```
+
+| Mode | What it does |
+| --- | --- |
+| `--derive --jar NEW.jar` | Locates each hook in a client JAR. |
+| `--verify --jar JAR --mappings M.json` | Checks every class, field and method a mapping file names exists in that JAR with the declared descriptor. Exits 1 if any is missing. |
+| `--buffer-infra --jar JAR` | Prints the packet buffer and writer infrastructure: the buffer class and its offset multipliers, `ClientPacket`, `PacketBufferNode`, `PacketWriter` and its ISAAC field. |
+
+Every rule is anchored on something the injector cannot rename — an interface a
+class declares, or an injected public getter — and reads the answer out of the
+bytecode. That makes the rules revision-independent by construction, which is a
+claim about them, not a proof. So `--derive` takes a control:
+
+```shell
+java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar --derive \
+  --control     injected-client-1.12.33.jar \
+  --control-hooks hooks-1.12.33.json \
+  --jar         injected-client-1.12.35.jar
+```
+
+Each rule must first reproduce the known-good answer on the older JAR. If any
+disagrees, nothing is printed for the new one:
+
+```
+control: 21/21 known hooks reproduced from injected-client-1.12.33.jar
+
+derived from injected-client-1.12.35.jar:
+  Actor.pathLength                    dh.bb:I *-1798356091
+  Scene.selectedX                     ez.bj:I
+  ...
+```
+
+The control file is any JSON with `classMappings`, `staticFields` and `garbage`
+in the shape the mapping tools already use. A rule that has quietly stopped
+matching fails loudly instead of returning a plausible wrong name — which is
+what caught a bug in the scene-selection rule while it was being written.
+
+`--derive` finds names, not meanings. That a field is called `pathLength` is
+still a claim to check against a running client.
+
 ## What it does not do
 
 - It is not a general OSRS gamepack deobfuscator. It expects RuneLite's already
