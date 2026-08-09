@@ -66,10 +66,32 @@ public final class HookExtractor
         keys.add("otp");
         keys.add("loginIndex");
         keys.add("isMenuOpen");
+        keys.add("MouseHandler");
+        keys.add("MouseHandler_instance");
         keys.add("MouseHandler_lastPressedTimeMillis");
         keys.add("loginResponse1");
         keys.add("loginResponse2");
         keys.add("loginResponse3");
+        keys.add("Player");
+        keys.add("Player.actions");
+        keys.add("WidgetContainer");
+        keys.add("WidgetContainer.draggedHolder");
+        keys.add("DraggedWidgetHolder");
+        keys.add("DraggedWidgetHolder.draggedWidget");
+        keys.add("JX_ACCESS_TOKEN");
+        keys.add("JX_REFRESH_TOKEN");
+        keys.add("JX_SESSION_ID");
+        keys.add("JX_CHARACTER_ID");
+        keys.add("JX_DISPLAY_NAME");
+        keys.add("sessionId");
+        keys.add("characterId");
+        keys.add("displayName");
+        keys.add("AccountType");
+        keys.add("loginMode");
+        keys.add("normalLoginMode");
+        keys.add("oAuthLoginMode");
+        keys.add("loadWorlds");
+        keys.add("Login_promptCredentials");
         SUPPORTED_KEYS = java.util.Collections.unmodifiableSet(keys);
     }
 
@@ -154,10 +176,12 @@ public final class HookExtractor
         String scene = declared.get("Scene");
         String worldView = declared.get("WorldView");
         String tileItem = declared.get("TileItem");
+        String player = declared.get("Player");
 
         putClass(hooks, "Actor", actor);
         putClass(hooks, "Scene", scene);
         putClass(hooks, "TileItem", tileItem);
+        putClass(hooks, "Player", player);
 
         deriveSceneSelection(hooks, classes, worldView, scene);
         deriveSceneFlags(hooks, classes, scene);
@@ -167,7 +191,16 @@ public final class HookExtractor
         deriveWidgets(hooks, classes, client);
         deriveLoginStatics(hooks, classes, client);
         deriveMouseLastPressed(hooks, classes, client);
+        deriveMouseInstance(hooks, classes);
         deriveLoginResponses(hooks, classes);
+        derivePlayerActions(hooks, classes, player);
+        deriveDraggedWidget(hooks, classes, client);
+        deriveJxStatics(hooks, classes);
+        deriveDisplayName(hooks, classes);
+        deriveLoginMode(hooks, classes, client);
+        deriveLoginModes(hooks, classes);
+        deriveLoginPromptCredentials(hooks, classes);
+        deriveLoadWorlds(hooks, classes);
         return hooks;
     }
 
@@ -686,6 +719,506 @@ public final class HookExtractor
                         new Hook(field.owner, field.name, field.desc, null));
                 }
                 return;
+            }
+        }
+    }
+
+    /**
+     * The mouse handler holds one static reference to itself, which is the instance every caller
+     * reaches its fields through. The handler class is already known from
+     * {@code MouseHandler_lastPressedTimeMillis}, whose owner it is; the instance is the static field
+     * on that class whose type is the class itself.
+     */
+    private static void deriveMouseInstance(Map<String, Hook> hooks, Map<String, ClassNode> classes)
+    {
+        Hook lastPressed = hooks.get("MouseHandler_lastPressedTimeMillis");
+        if (lastPressed == null)
+        {
+            return;
+        }
+        String mouse = lastPressed.getOwner();
+        hooks.put("MouseHandler", new Hook(mouse, null, null, null));
+        ClassNode node = classes.get(mouse);
+        if (node == null)
+        {
+            return;
+        }
+        String selfType = "L" + mouse + ";";
+        for (FieldNode field : node.fields)
+        {
+            if ((field.access & Opcodes.ACC_STATIC) != 0 && field.desc.equals(selfType))
+            {
+                hooks.put("MouseHandler_instance", new Hook(mouse, field.name, field.desc, null));
+                return;
+            }
+        }
+    }
+
+    /**
+     * The local player's right-click actions. Player is the class declaring
+     * {@code net.runelite.api.Player}; its actions are the one {@code String[]} field it declares.
+     * A class with more than one such field would be ambiguous, so this only answers when there is
+     * exactly one.
+     */
+    private static void derivePlayerActions(Map<String, Hook> hooks,
+        Map<String, ClassNode> classes, String player)
+    {
+        ClassNode node = player == null ? null : classes.get(player);
+        if (node == null)
+        {
+            return;
+        }
+        String found = null;
+        for (FieldNode field : node.fields)
+        {
+            if (field.desc.equals("[Ljava/lang/String;"))
+            {
+                if (found != null)
+                {
+                    return;
+                }
+                found = field.name;
+            }
+        }
+        if (found != null)
+        {
+            hooks.put("Player.actions", new Hook(player, found, "[Ljava/lang/String;", null));
+        }
+    }
+
+    /**
+     * {@code getDraggedWidget()} is an injected getter that delegates to a method reading the widget
+     * container static, then a holder field on it, then the widget field on the holder. The three
+     * accesses in order give the container class, {@code draggedHolder}, the holder class and
+     * {@code draggedWidget}. This is the same chain {@code setDraggedWidget} must walk to write.
+     */
+    private static void deriveDraggedWidget(Map<String, Hook> hooks,
+        Map<String, ClassNode> classes, String client)
+    {
+        MethodNode getter = method(classes, client, "getDraggedWidget", null);
+        MethodInsnNode delegate = getter == null ? null : firstCall(getter);
+        MethodNode body = delegate == null
+            ? null : method(classes, delegate.owner, delegate.name, delegate.desc);
+        if (body == null)
+        {
+            return;
+        }
+        boolean sawStatic = false;
+        List<FieldInsnNode> gets = new ArrayList<>();
+        for (AbstractInsnNode insn : body.instructions.toArray())
+        {
+            if (insn.getOpcode() == Opcodes.GETSTATIC && !sawStatic)
+            {
+                sawStatic = true;
+            }
+            else if (insn.getOpcode() == Opcodes.GETFIELD && sawStatic)
+            {
+                gets.add((FieldInsnNode) insn);
+            }
+        }
+        if (gets.size() < 2)
+        {
+            return;
+        }
+        FieldInsnNode holder = gets.get(0);
+        FieldInsnNode widget = gets.get(1);
+        hooks.put("WidgetContainer", new Hook(holder.owner, null, null, null));
+        hooks.put("WidgetContainer.draggedHolder",
+            new Hook(holder.owner, holder.name, holder.desc, null));
+        hooks.put("DraggedWidgetHolder", new Hook(widget.owner, null, null, null));
+        hooks.put("DraggedWidgetHolder.draggedWidget",
+            new Hook(widget.owner, widget.name, widget.desc, null));
+    }
+
+    /**
+     * The Jagex-account identifiers the launcher writes back onto the client. Each is stored right
+     * after the client reads its {@code JX_*} environment key, by a putstatic within a few
+     * instructions of the string literal the obfuscator cannot rename. Two carry a second,
+     * launcher-facing name for the same field - {@code sessionId} and {@code characterId} - emitted
+     * as aliases.
+     *
+     * <p>{@code JX_DISPLAY_NAME} is deliberately not derived here: it reaches its field through a
+     * value-decoding helper whose shape differs across revisions, so no fixed-window rule reproduces
+     * it under control. It stays hand-maintained.
+     */
+    private static void deriveJxStatics(Map<String, Hook> hooks, Map<String, ClassNode> classes)
+    {
+        Map<String, String> alias = new LinkedHashMap<>();
+        alias.put("JX_SESSION_ID", "sessionId");
+        alias.put("JX_CHARACTER_ID", "characterId");
+        Set<String> literals = new LinkedHashSet<>(java.util.Arrays.asList(
+            "JX_ACCESS_TOKEN", "JX_REFRESH_TOKEN", "JX_SESSION_ID", "JX_CHARACTER_ID"));
+        for (ClassNode node : classes.values())
+        {
+            for (MethodNode method : node.methods)
+            {
+                AbstractInsnNode[] insns = method.instructions.toArray();
+                for (int i = 0; i < insns.length; i++)
+                {
+                    if (!(insns[i] instanceof LdcInsnNode))
+                    {
+                        continue;
+                    }
+                    Object cst = ((LdcInsnNode) insns[i]).cst;
+                    if (!(cst instanceof String) || !literals.contains(cst) || hooks.containsKey(cst))
+                    {
+                        continue;
+                    }
+                    for (int j = i + 1; j < Math.min(insns.length, i + 8); j++)
+                    {
+                        if (insns[j].getOpcode() != Opcodes.PUTSTATIC)
+                        {
+                            continue;
+                        }
+                        FieldInsnNode field = (FieldInsnNode) insns[j];
+                        if (!field.desc.equals("Ljava/lang/String;"))
+                        {
+                            continue;
+                        }
+                        Hook hook = new Hook(field.owner, field.name, field.desc, null);
+                        hooks.put((String) cst, hook);
+                        String aliasKey = alias.get(cst);
+                        if (aliasKey != null)
+                        {
+                            hooks.put(aliasKey, hook);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The launcher-supplied display name, whose store differs by revision: at some revisions an inline
+     * putstatic follows a {@code (String,int)String} decode, at others the value is handed to a
+     * {@code (String,int)void} helper that stores it. Both are reached the same way - the
+     * {@code JX_DISPLAY_NAME} literal read through a {@code (String)String} environment getter - which
+     * anchors the store and rules out the array-building and getter uses of the same literal.
+     */
+    private static void deriveDisplayName(Map<String, Hook> hooks, Map<String, ClassNode> classes)
+    {
+        for (ClassNode node : classes.values())
+        {
+            for (MethodNode method : node.methods)
+            {
+                AbstractInsnNode[] insns = method.instructions.toArray();
+                for (int i = 0; i + 1 < insns.length; i++)
+                {
+                    if (!(insns[i] instanceof LdcInsnNode)
+                        || !"JX_DISPLAY_NAME".equals(((LdcInsnNode) insns[i]).cst))
+                    {
+                        continue;
+                    }
+                    if (!(insns[i + 1] instanceof MethodInsnNode))
+                    {
+                        continue;
+                    }
+                    MethodInsnNode read = (MethodInsnNode) insns[i + 1];
+                    if (read.getOpcode() != Opcodes.INVOKESTATIC
+                        || !read.desc.equals("(Ljava/lang/String;)Ljava/lang/String;"))
+                    {
+                        continue;
+                    }
+                    Hook field = displayStore(insns, i + 1, classes);
+                    if (field != null)
+                    {
+                        hooks.put("JX_DISPLAY_NAME", field);
+                        hooks.put("displayName", field);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private static Hook displayStore(AbstractInsnNode[] insns, int from, Map<String, ClassNode> classes)
+    {
+        for (int j = from + 1; j < Math.min(insns.length, from + 12); j++)
+        {
+            if (insns[j].getOpcode() == Opcodes.PUTSTATIC)
+            {
+                FieldInsnNode field = (FieldInsnNode) insns[j];
+                if (field.desc.equals("Ljava/lang/String;"))
+                {
+                    return new Hook(field.owner, field.name, field.desc, null);
+                }
+            }
+            if (insns[j] instanceof MethodInsnNode)
+            {
+                MethodInsnNode call = (MethodInsnNode) insns[j];
+                if (call.desc.equals("(Ljava/lang/String;I)V"))
+                {
+                    MethodNode body = method(classes, call.owner, call.name, call.desc);
+                    FieldInsnNode store = body == null ? null : singleStringPutStatic(body);
+                    if (store != null)
+                    {
+                        return new Hook(store.owner, store.name, store.desc, null);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The one String putstatic in a method, or null if there is not exactly one. */
+    private static FieldInsnNode singleStringPutStatic(MethodNode method)
+    {
+        FieldInsnNode found = null;
+        for (AbstractInsnNode insn : method.instructions.toArray())
+        {
+            if (insn.getOpcode() == Opcodes.PUTSTATIC
+                && ((FieldInsnNode) insn).desc.equals("Ljava/lang/String;"))
+            {
+                if (found != null)
+                {
+                    return null;
+                }
+                found = (FieldInsnNode) insn;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The two account-type constants the client selects between: the normal (existing-user) mode and
+     * the OAuth (Jagex-account) mode. Both are public static final fields of the account-type class,
+     * constructed in its static initialiser with two int arguments. The second argument is the login
+     * type's own id, and the normal mode's is the lower of the two - 0 for normal against a higher
+     * value for OAuth at every revision measured. Which field is written into {@code loginMode} does
+     * not separate them, because the client writes both, one per login path.
+     */
+    private static void deriveLoginModes(Map<String, Hook> hooks, Map<String, ClassNode> classes)
+    {
+        Hook accountType = hooks.get("AccountType");
+        ClassNode typeNode = accountType == null ? null : classes.get(accountType.getOwner());
+        if (typeNode == null)
+        {
+            return;
+        }
+        String type = typeNode.name;
+        String selfType = "L" + type + ";";
+        int mask = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL;
+        Set<String> candidates = new LinkedHashSet<>();
+        for (FieldNode field : typeNode.fields)
+        {
+            if ((field.access & mask) == mask && field.desc.equals(selfType))
+            {
+                candidates.add(field.name);
+            }
+        }
+        if (candidates.size() != 2)
+        {
+            return;
+        }
+        Map<String, Integer> typeId = constructorSecondArgs(typeNode, candidates);
+        if (typeId.size() != 2)
+        {
+            return;
+        }
+        String normal = null;
+        String oauth = null;
+        for (Map.Entry<String, Integer> entry : typeId.entrySet())
+        {
+            if (normal == null || entry.getValue() < typeId.get(normal))
+            {
+                oauth = normal;
+                normal = entry.getKey();
+            }
+            else
+            {
+                oauth = entry.getKey();
+            }
+        }
+        hooks.put("normalLoginMode", new Hook(type, normal, selfType, null));
+        hooks.put("oAuthLoginMode", new Hook(type, oauth, selfType, null));
+    }
+
+    /**
+     * For each named constant of {@code owner} built in its static initialiser, the second int passed
+     * to its constructor - the int pushed just before the {@code <init>} call that a putstatic stores.
+     */
+    private static Map<String, Integer> constructorSecondArgs(ClassNode owner, Set<String> fields)
+    {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        MethodNode clinit = null;
+        for (MethodNode method : owner.methods)
+        {
+            if (method.name.equals("<clinit>"))
+            {
+                clinit = method;
+                break;
+            }
+        }
+        if (clinit == null)
+        {
+            return result;
+        }
+        AbstractInsnNode[] insns = clinit.instructions.toArray();
+        List<Integer> ints = new ArrayList<>();
+        for (AbstractInsnNode insn : insns)
+        {
+            Integer value = intConstant(insn);
+            if (value != null)
+            {
+                ints.add(value);
+            }
+            else if (insn.getOpcode() == Opcodes.PUTSTATIC)
+            {
+                FieldInsnNode field = (FieldInsnNode) insn;
+                if (field.owner.equals(owner.name) && fields.contains(field.name)
+                    && ints.size() >= 2)
+                {
+                    result.put(field.name, ints.get(ints.size() - 1));
+                }
+                ints.clear();
+            }
+        }
+        return result;
+    }
+
+    private static Integer intConstant(AbstractInsnNode insn)
+    {
+        int op = insn.getOpcode();
+        if (op >= Opcodes.ICONST_0 && op <= Opcodes.ICONST_5)
+        {
+            return op - Opcodes.ICONST_0;
+        }
+        if (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH)
+        {
+            return ((org.objectweb.asm.tree.IntInsnNode) insn).operand;
+        }
+        if (insn instanceof LdcInsnNode && ((LdcInsnNode) insn).cst instanceof Integer)
+        {
+            return (Integer) ((LdcInsnNode) insn).cst;
+        }
+        return null;
+    }
+
+    /**
+     * The client's current login mode, and the account-type class it is an instance of. loginMode is
+     * the one static field on {@code client} whose type is an enum-like class - a class carrying two
+     * or more public static final fields of its own type. That type is the account-type class.
+     */
+    private static void deriveLoginMode(Map<String, Hook> hooks,
+        Map<String, ClassNode> classes, String client)
+    {
+        ClassNode node = classes.get(client);
+        if (node == null)
+        {
+            return;
+        }
+        for (FieldNode field : node.fields)
+        {
+            if ((field.access & Opcodes.ACC_STATIC) == 0
+                || !field.desc.startsWith("L") || !field.desc.endsWith(";"))
+            {
+                continue;
+            }
+            String type = field.desc.substring(1, field.desc.length() - 1);
+            ClassNode typeNode = classes.get(type);
+            if (typeNode == null || selfTypedConstants(typeNode) < 2)
+            {
+                continue;
+            }
+            hooks.put("loginMode", new Hook(client, field.name, field.desc, null));
+            hooks.put("AccountType", new Hook(type, null, null, null));
+            return;
+        }
+    }
+
+    /** How many public static final fields a class declares of its own type. */
+    private static int selfTypedConstants(ClassNode node)
+    {
+        String selfType = "L" + node.name + ";";
+        int mask = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL;
+        int count = 0;
+        for (FieldNode field : node.fields)
+        {
+            if ((field.access & mask) == mask && field.desc.equals(selfType))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * The credential-reset routine the login screen calls to blank and re-request the user's details.
+     * It is the static {@code (boolean)void} method that writes all three credential statics -
+     * {@code username}, {@code password} and {@code otp} - which no other method does together. The
+     * obfuscator emits duplicates of it; the first in archive order is taken, and they are
+     * behaviourally identical.
+     */
+    private static void deriveLoginPromptCredentials(Map<String, Hook> hooks,
+        Map<String, ClassNode> classes)
+    {
+        Hook username = hooks.get("username");
+        Hook password = hooks.get("password");
+        Hook otp = hooks.get("otp");
+        if (username == null || password == null || otp == null)
+        {
+            return;
+        }
+        for (ClassNode node : classes.values())
+        {
+            for (MethodNode method : node.methods)
+            {
+                if (!method.desc.equals("(Z)V") || (method.access & Opcodes.ACC_STATIC) == 0)
+                {
+                    continue;
+                }
+                boolean wroteUser = false;
+                boolean wrotePass = false;
+                boolean wroteOtp = false;
+                for (AbstractInsnNode insn : method.instructions.toArray())
+                {
+                    if (insn.getOpcode() != Opcodes.PUTSTATIC)
+                    {
+                        continue;
+                    }
+                    FieldInsnNode field = (FieldInsnNode) insn;
+                    wroteUser |= field.owner.equals(username.getOwner())
+                        && field.name.equals(username.getName());
+                    wrotePass |= field.owner.equals(password.getOwner())
+                        && field.name.equals(password.getName());
+                    wroteOtp |= field.owner.equals(otp.getOwner())
+                        && field.name.equals(otp.getName());
+                }
+                if (wroteUser && wrotePass && wroteOtp)
+                {
+                    hooks.put("Login_promptCredentials",
+                        new Hook(node.name, method.name, method.desc, null));
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * The world-list loader. It is the static {@code ()boolean} method that builds a
+     * {@code java.net.URL} - the fetch of the world list from the configured URL. The obfuscator emits
+     * duplicates; the first in archive order is taken, and they are behaviourally identical.
+     */
+    private static void deriveLoadWorlds(Map<String, Hook> hooks, Map<String, ClassNode> classes)
+    {
+        for (ClassNode node : classes.values())
+        {
+            for (MethodNode method : node.methods)
+            {
+                if (!method.desc.equals("()Z") || (method.access & Opcodes.ACC_STATIC) == 0)
+                {
+                    continue;
+                }
+                for (AbstractInsnNode insn : method.instructions.toArray())
+                {
+                    if (insn.getOpcode() == Opcodes.NEW
+                        && "java/net/URL".equals(((org.objectweb.asm.tree.TypeInsnNode) insn).desc))
+                    {
+                        hooks.put("loadWorlds", new Hook(node.name, method.name, method.desc, null));
+                        return;
+                    }
+                }
             }
         }
     }

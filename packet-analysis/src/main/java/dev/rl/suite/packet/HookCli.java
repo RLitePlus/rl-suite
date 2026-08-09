@@ -73,7 +73,7 @@ public final class HookCli
 
     private static int derive(Map<String, String> options) throws IOException
     {
-        Path jar = required(options, "jar");
+        Path jar = resolveJar(required(options, "jar").toString());
         if (options.containsKey("control") != options.containsKey("control-hooks"))
         {
             System.err.println("--control and --control-hooks must be given together");
@@ -85,7 +85,7 @@ public final class HookCli
             Map<String, HookExtractor.Hook> expected =
                 readHooks(Paths.get(options.get("control-hooks")));
             Map<String, HookExtractor.Hook> actual =
-                HookExtractor.derive(JarArchive.read(Paths.get(options.get("control"))));
+                HookExtractor.derive(JarArchive.read(resolveJar(options.get("control"))));
             List<String> failures = new ArrayList<>();
             for (Map.Entry<String, HookExtractor.Hook> entry : expected.entrySet())
             {
@@ -127,7 +127,66 @@ public final class HookCli
         {
             System.out.println("  " + pad(entry.getKey()) + entry.getValue());
         }
+        if (options.containsKey("json"))
+        {
+            Path out = Paths.get(options.get("json"));
+            Files.write(out, writeJson(hooks, options.get("version")).getBytes(StandardCharsets.UTF_8));
+            System.out.println();
+            System.out.println("wrote " + hooks.size() + " hooks to " + out);
+        }
         return 0;
+    }
+
+    /**
+     * The derived hooks as a tool-neutral JSON document: one entry per hook, each carrying the key,
+     * the obfuscated owner class, the member name, its descriptor and any garbage decoder. A consumer
+     * decides from the key shape where each belongs - a bare key is a static, {@code Class.member} an
+     * instance member, a descriptor beginning {@code (} a method. This does not encode any one
+     * launcher's mapping schema.
+     */
+    private static String writeJson(Map<String, HookExtractor.Hook> hooks, String version)
+    {
+        StringBuilder json = new StringBuilder();
+        json.append("{\n");
+        json.append("  \"runeLiteVersion\": ").append(quote(version)).append(",\n");
+        json.append("  \"hooks\": [\n");
+        int i = 0;
+        for (Map.Entry<String, HookExtractor.Hook> entry : hooks.entrySet())
+        {
+            HookExtractor.Hook hook = entry.getValue();
+            json.append("    {")
+                .append("\"key\": ").append(quote(entry.getKey())).append(", ")
+                .append("\"owner\": ").append(quote(hook.getOwner())).append(", ")
+                .append("\"obf\": ").append(quote(hook.getName())).append(", ")
+                .append("\"desc\": ").append(quote(hook.getDesc())).append(", ")
+                .append("\"garbage\": ").append(quote(hook.getMultiplier()))
+                .append("}");
+            json.append(++i < hooks.size() ? ",\n" : "\n");
+        }
+        json.append("  ]\n}\n");
+        return json.toString();
+    }
+
+    private static String quote(String value)
+    {
+        if (value == null)
+        {
+            return "null";
+        }
+        StringBuilder out = new StringBuilder("\"");
+        for (int i = 0; i < value.length(); i++)
+        {
+            char c = value.charAt(i);
+            if (c == '"' || c == '\\')
+            {
+                out.append('\\').append(c);
+            }
+            else
+            {
+                out.append(c);
+            }
+        }
+        return out.append('"').toString();
     }
 
     /** Rebuilds the hook map from a supplemental mapping file. */
@@ -379,6 +438,45 @@ public final class HookCli
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
+    /**
+     * A jar argument is either a path to an existing file, or a bare RuneLite version like
+     * {@code 1.12.35}. A version is downloaded once from the RuneLite maven repository into a local
+     * cache and reused. The repository base can be overridden with {@code rlsuite.repo}.
+     */
+    static Path resolveJar(String value) throws IOException
+    {
+        Path asPath = Paths.get(value);
+        if (Files.exists(asPath))
+        {
+            return asPath;
+        }
+        if (!value.matches("\\d+(\\.\\d+)+"))
+        {
+            throw new IOException("no such jar and not a version number: " + value);
+        }
+        String repo = System.getProperty("rlsuite.repo", "https://repo.runelite.net");
+        Path cacheDir = Paths.get(System.getProperty("user.home"), ".cache", "rl-suite");
+        Files.createDirectories(cacheDir);
+        Path cached = cacheDir.resolve("injected-client-" + value + ".jar");
+        if (!Files.exists(cached))
+        {
+            String url = repo + "/net/runelite/injected-client/" + value
+                + "/injected-client-" + value + ".jar";
+            System.out.println("fetching " + url);
+            try (java.io.InputStream in = new java.net.URL(url).openStream())
+            {
+                Files.copy(in, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            catch (IOException e)
+            {
+                Files.deleteIfExists(cached);
+                throw new IOException("could not download injected-client " + value
+                    + " from " + url + " (" + e.getMessage() + ")", e);
+            }
+        }
+        return cached;
+    }
+
     private static Path required(Map<String, String> options, String name)
     {
         String value = options.get(name);
@@ -433,9 +531,13 @@ public final class HookCli
     private static void usage()
     {
         System.err.println("Usage:");
-        System.err.println("  --derive --jar NEW.jar [--control OLD.jar --control-hooks OLD.json]");
+        System.err.println("  --derive --jar NEW [--control OLD --control-hooks OLD.json]");
+        System.err.println("           [--json OUT.json --version VER]");
         System.err.println("      Re-derives the reflection hooks. With a control, every rule must");
         System.err.println("      first reproduce the known-good answers or nothing is printed.");
+        System.err.println("      --jar and --control take a jar path or a bare version (1.12.35),");
+        System.err.println("      which is downloaded from the RuneLite repo and cached. --json");
+        System.err.println("      writes the derived hooks as a tool-neutral document.");
         System.err.println("  --verify --jar JAR --mappings MAPPINGS.json");
         System.err.println("      Checks every mapped class, field and method exists in the JAR");
         System.err.println("      with the declared descriptor. Exit 1 if any is missing.");
