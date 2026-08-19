@@ -472,12 +472,6 @@ public final class PacketHandlerNormalizer implements TransformPass
         }
 
         @Override
-        public String passName()
-        {
-            return "normalize-packet-handlers";
-        }
-
-        @Override
         public void apply(PassContext context)
         {
             long tryCatchBefore = 0;

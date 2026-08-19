@@ -3,17 +3,13 @@ package dev.rl.suite;
 import dev.rl.suite.packet.PacketProfileMode;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 public final class Main
 {
-    private static final Set<String> VALUE_OPTIONS = Collections.unmodifiableSet(
-        new HashSet<>(Arrays.asList(
+    private static final Set<String> VALUE_OPTIONS = Set.of(
             "input",
             "output",
             "report",
@@ -21,7 +17,7 @@ public final class Main
             "expected-packet-handlers",
             "expected-packet-ranges",
             "expected-condy-sites",
-            "packet-profile")));
+            "packet-profile");
 
     private Main()
     {

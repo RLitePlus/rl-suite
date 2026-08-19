@@ -215,12 +215,6 @@ public final class SymbolRenamer implements TransformPass
         }
 
         @Override
-        public String passName()
-        {
-            return "rename-symbols";
-        }
-
-        @Override
         public void apply(PassContext context)
         {
             SymbolTable current = SymbolTable.from(context.getArchive());

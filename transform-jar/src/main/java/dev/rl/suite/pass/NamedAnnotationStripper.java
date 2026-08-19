@@ -5,12 +5,9 @@ import dev.rl.suite.model.ClassUnit;
 import dev.rl.suite.pipeline.PassContext;
 import dev.rl.suite.pipeline.TransformPass;
 import dev.rl.suite.pipeline.TransformationPlan;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.OptionalLong;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -21,12 +18,12 @@ import org.objectweb.asm.tree.MethodNode;
 public final class NamedAnnotationStripper implements TransformPass
 {
     public static final String NAMED_DESCRIPTOR = "Ljavax/inject/Named;";
-    private static final Set<String> KNOWN_LEGITIMATE_VALUES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    private static final Set<String> KNOWN_LEGITIMATE_VALUES = Set.of(
         "scriptVmMaxOps",
         "scriptVmWarningOps",
         "runeLiteDir",
         "insecureWriteCredentials"
-    )));
+    );
 
     @Override
     public String name()
@@ -38,14 +35,10 @@ public final class NamedAnnotationStripper implements TransformPass
     public TransformationPlan analyze(PassContext context)
     {
         Counts before = count(context);
-        if (before.unknown > 0 && context.getConfig().isStrictNamedShapes())
+        if (before.unknown > 0)
         {
             throw new TransformException("Found " + before.unknown
                 + " unknown javax.inject.Named annotation shape(s)");
-        }
-        if (before.unknown > 0)
-        {
-            context.getReport().warning("Preserved " + before.unknown + " unknown Named annotation shape(s).");
         }
         OptionalLong expected = context.getConfig().getExpectedMalformedNamed();
         if (expected.isPresent() && expected.getAsLong() != before.malformed)
@@ -123,7 +116,7 @@ public final class NamedAnnotationStripper implements TransformPass
         long malformed = 0;
         long scalar = 0;
         long unknown = 0;
-        for (AnnotationNode annotation : annotations == null ? Collections.<AnnotationNode>emptyList() : annotations)
+        for (AnnotationNode annotation : annotations == null ? List.<AnnotationNode>of() : annotations)
         {
             Classification classification = classify(annotation, visible);
             if (classification == Classification.POISON)
@@ -227,12 +220,6 @@ public final class NamedAnnotationStripper implements TransformPass
         private Plan(Counts expectedBefore)
         {
             this.expectedBefore = expectedBefore;
-        }
-
-        @Override
-        public String passName()
-        {
-            return "strip-malformed-named";
         }
 
         @Override

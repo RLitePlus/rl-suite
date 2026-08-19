@@ -97,12 +97,6 @@ public final class UnusedMemberMarker implements TransformPass
         }
 
         @Override
-        public String passName()
-        {
-            return "mark-unused-members";
-        }
-
-        @Override
         public void apply(PassContext context)
         {
             Snapshot current = Snapshot.create(context.getArchive());

@@ -1,17 +1,7 @@
-plugins {
-    id 'java-library'
-}
-
-group = 'dev.rl.suite'
-version = '1.3.1'
 description = 'Packet payload extraction and cross-revision packet mapping.'
 
 base {
     archivesName = 'rl-suite-hooks'
-}
-
-repositories {
-    mavenCentral()
 }
 
 dependencies {
@@ -19,17 +9,6 @@ dependencies {
     // TransformException from transform-jar. Nothing in transform-jar refers
     // back to this module.
     api project(':transform-jar')
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.compilerArgs << '-parameters'
 }
 
 // Executable fat JAR for HookCli, mirroring transform-jar's shadedJar. The

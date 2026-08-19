@@ -1,7 +1,6 @@
 package dev.rl.suite.model;
 
 import dev.rl.suite.TransformException;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -62,7 +61,7 @@ public final class JarArchive
                 byte[] bytes;
                 try (InputStream input = zip.getInputStream(entry))
                 {
-                    bytes = readAllBytes(input);
+                    bytes = input.readAllBytes();
                 }
 
                 if (entry.getName().endsWith(".class"))
@@ -80,18 +79,6 @@ public final class JarArchive
 
         classes.sort(Comparator.comparing(ClassUnit::getOriginalClassName));
         return new JarArchive(classes, resources);
-    }
-
-    private static byte[] readAllBytes(InputStream input) throws IOException
-    {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[64 * 1024];
-        int read;
-        while ((read = input.read(buffer)) >= 0)
-        {
-            output.write(buffer, 0, read);
-        }
-        return output.toByteArray();
     }
 
     public List<ClassUnit> getClasses()

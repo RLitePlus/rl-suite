@@ -1,8 +1,6 @@
 package dev.rl.suite.packet;
 
 import dev.rl.suite.TransformException;
-import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** Guards implicit semantic packet naming with exact accepted input evidence. */
@@ -13,15 +11,8 @@ public final class PacketProfilePolicy
     public static final String RUNELITE_11232_SHA256 =
         "7e1f70c24e25175e21a2d1fe55db3650f57d786a9f890c6a1510fc43aa6323ee";
 
-    private static final Set<String> IMPLICIT_OSRS_239_INPUTS;
-
-    static
-    {
-        Set<String> hashes = new LinkedHashSet<>();
-        hashes.add(RUNELITE_11231_SHA256);
-        hashes.add(RUNELITE_11232_SHA256);
-        IMPLICIT_OSRS_239_INPUTS = Collections.unmodifiableSet(hashes);
-    }
+    private static final Set<String> IMPLICIT_OSRS_239_INPUTS = Set.of(
+        RUNELITE_11231_SHA256, RUNELITE_11232_SHA256);
 
     private PacketProfilePolicy()
     {

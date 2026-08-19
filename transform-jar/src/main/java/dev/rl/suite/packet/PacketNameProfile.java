@@ -4,7 +4,6 @@ import dev.rl.suite.TransformException;
 import dev.rl.suite.model.ClassUnit;
 import dev.rl.suite.model.JarArchive;
 import dev.rl.suite.rename.FieldKey;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -84,7 +83,7 @@ public final class PacketNameProfile
             {
                 throw new IOException("Packet profile resource does not exist: " + resourceName);
             }
-            return parse(readAllBytes(input), expectedSha256, resourceName);
+            return parse(input.readAllBytes(), expectedSha256, resourceName);
         }
     }
 
@@ -551,18 +550,6 @@ public final class PacketNameProfile
             result.append(String.format(Locale.ROOT, "%02x", value & 0xff));
         }
         return result.toString();
-    }
-
-    private static byte[] readAllBytes(InputStream input) throws IOException
-    {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[16 * 1024];
-        int read;
-        while ((read = input.read(buffer)) >= 0)
-        {
-            output.write(buffer, 0, read);
-        }
-        return output.toByteArray();
     }
 
     private static final class ProfileEntry

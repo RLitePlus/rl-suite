@@ -30,24 +30,6 @@ import java.util.Set;
  */
 final class ArtifactPublisher
 {
-    @FunctionalInterface
-    interface CommitMover
-    {
-        void replace(Path source, Path target) throws IOException;
-    }
-
-    private final CommitMover commitMover;
-
-    ArtifactPublisher()
-    {
-        this(ArtifactPublisher::moveReplace);
-    }
-
-    ArtifactPublisher(CommitMover commitMover)
-    {
-        this.commitMover = commitMover;
-    }
-
     void publish(JarArchive archive, AuditReport report, Path outputPath,
         Path reportPath) throws IOException
     {
@@ -123,9 +105,9 @@ final class ArtifactPublisher
             // Output first is intentional. It avoids ever exposing a report that
             // claims a hash for an output that has not yet been installed.
             outputAttempted = true;
-            commitMover.replace(stagedOutput, output);
+            moveReplace(stagedOutput, output);
             reportAttempted = true;
-            commitMover.replace(stagedReport, audit);
+            moveReplace(stagedReport, audit);
         }
         catch (IOException | RuntimeException | Error failure)
         {

@@ -26,18 +26,6 @@ import java.util.Map;
 
 public final class Deobfuscator
 {
-    private final List<TransformPass> passes;
-
-    public Deobfuscator()
-    {
-        this.passes = null;
-    }
-
-    Deobfuscator(List<TransformPass> passes)
-    {
-        this.passes = passes;
-    }
-
     public AuditReport run(TransformConfig config) throws IOException
     {
         validateDistinctPaths(config);
@@ -45,11 +33,8 @@ public final class Deobfuscator
         report.putMetadata("input.path", AuditPath.forReport(config.getInput()));
         String inputSha256 = Hashing.sha256(config.getInput());
         report.putMetadata("input.sha256", inputSha256);
-        if (passes == null)
-        {
-            PacketProfilePolicy.validate(config.getPacketProfileMode(),
-                config.isPacketProfileExplicit(), inputSha256);
-        }
+        PacketProfilePolicy.validate(config.getPacketProfileMode(),
+            config.isPacketProfileExplicit(), inputSha256);
 
         JarArchive archive = JarArchive.read(config.getInput());
         // Before any pass runs: the renamer rewrites field names, and a decoder table
@@ -85,22 +70,15 @@ public final class Deobfuscator
 
         PassContext context = new PassContext(archive, config, report);
         List<TransformationPlan> plans = new ArrayList<>();
-        List<TransformPass> activePasses = passes == null
-            ? defaultPasses(archive, config, report) : passes;
+        List<TransformPass> activePasses = defaultPasses(archive, config, report);
         for (TransformPass pass : activePasses)
         {
-            TransformationPlan plan = pass.analyze(context);
-            if (!pass.name().equals(plan.passName()))
-            {
-                throw new TransformException("Pass/plan name mismatch: " + pass.name()
-                    + " != " + plan.passName());
-            }
-            plans.add(plan);
+            plans.add(pass.analyze(context));
         }
-        for (TransformationPlan plan : plans)
+        for (int index = 0; index < plans.size(); index++)
         {
-            plan.apply(context);
-            report.passCompleted(plan.passName());
+            plans.get(index).apply(context);
+            report.passCompleted(activePasses.get(index).name());
         }
 
         ArchiveVerifier.Result verification = new ArchiveVerifier().verifyOrThrow(archive);

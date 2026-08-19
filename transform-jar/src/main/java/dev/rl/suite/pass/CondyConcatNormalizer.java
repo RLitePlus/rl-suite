@@ -254,12 +254,6 @@ public final class CondyConcatNormalizer implements TransformPass
         }
 
         @Override
-        public String passName()
-        {
-            return "normalize-condy-concats";
-        }
-
-        @Override
         public void apply(PassContext context)
         {
             Set<ConstantDynamic> uniqueConstants = Collections.newSetFromMap(new IdentityHashMap<>());

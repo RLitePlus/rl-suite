@@ -14,7 +14,6 @@ public final class TransformConfig
     private final long expectedPacketHandlers;
     private final long expectedPacketRanges;
     private final long expectedCondySites;
-    private final boolean strictNamedShapes;
     private final PacketProfileMode packetProfileMode;
     private final boolean packetProfileExplicit;
 
@@ -27,7 +26,6 @@ public final class TransformConfig
         this.expectedPacketHandlers = builder.expectedPacketHandlers;
         this.expectedPacketRanges = builder.expectedPacketRanges;
         this.expectedCondySites = builder.expectedCondySites;
-        this.strictNamedShapes = builder.strictNamedShapes;
         this.packetProfileMode = Objects.requireNonNull(builder.packetProfileMode,
             "packetProfileMode");
         this.packetProfileExplicit = builder.packetProfileExplicit;
@@ -74,11 +72,6 @@ public final class TransformConfig
         return expectedCondySites;
     }
 
-    public boolean isStrictNamedShapes()
-    {
-        return strictNamedShapes;
-    }
-
     public PacketProfileMode getPacketProfileMode()
     {
         return packetProfileMode;
@@ -103,7 +96,6 @@ public final class TransformConfig
         private long expectedPacketHandlers = 5L;
         private long expectedPacketRanges = -1L;
         private long expectedCondySites = 3L;
-        private boolean strictNamedShapes = true;
         private PacketProfileMode packetProfileMode = PacketProfileMode.OSRS_239;
         private boolean packetProfileExplicit;
 
