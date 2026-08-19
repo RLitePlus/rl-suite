@@ -215,7 +215,7 @@ public final class PayloadExtractor
      * Finds all methods in the buffer class hierarchy and indexes them by
      * their obfuscated name + descriptor.
      */
-    private static Map<String, BufferMethod> indexBufferMethods(
+    static Map<String, BufferMethod> indexBufferMethods(
         JarArchive archive, String bufferClassName, Set<String> hierarchyOut)
     {
         Map<String, BufferMethod> result = new LinkedHashMap<>();
@@ -277,7 +277,12 @@ public final class PayloadExtractor
             .getKey();
     }
 
-    private static ClassNode findClass(JarArchive archive, String name)
+    static String findBufferClass(JarArchive archive)
+    {
+        return findBufferClass(findHandlers(archive));
+    }
+
+    static ClassNode findClass(JarArchive archive, String name)
     {
         for (ClassUnit unit : archive.getClasses())
         {

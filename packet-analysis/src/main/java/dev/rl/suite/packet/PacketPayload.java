@@ -267,8 +267,6 @@ public final class PacketPayload
     {
         Map<String, Integer> ownerIds = new LinkedHashMap<>();
         Map<String, Integer> fullIds = new LinkedHashMap<>();
-        int nextOwner = 0;
-        int nextFull = 0;
 
         StringBuilder sb = new StringBuilder();
         sb.append("F[");

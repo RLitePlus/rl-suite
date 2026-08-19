@@ -1,7 +1,6 @@
 package dev.rl.suite.packet;
 
 import dev.rl.suite.TransformException;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -96,11 +95,7 @@ public final class ClientPacketNamer
             .getResourceAsStream(RESOURCE))
         {
             if (in == null) throw new TransformException("missing " + RESOURCE);
-            ByteArrayOutputStream buf = new ByteArrayOutputStream();
-            byte[] chunk = new byte[8192];
-            int n;
-            while ((n = in.read(chunk)) > 0) buf.write(chunk, 0, n);
-            for (String line : new String(buf.toByteArray(),
+            for (String line : new String(in.readAllBytes(),
                 StandardCharsets.UTF_8).split("\\R"))
             {
                 if (line.isEmpty() || line.startsWith("#")) continue;

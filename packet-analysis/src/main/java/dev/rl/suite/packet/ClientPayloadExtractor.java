@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
@@ -56,9 +55,9 @@ public final class ClientPayloadExtractor
             idToLength.put(entry.getId(), entry.getLength());
         }
 
-        String bufferClassName = findBufferClass(archive);
+        String bufferClassName = PayloadExtractor.findBufferClass(archive);
         Set<String> bufferHierarchy = new HashSet<>();
-        Map<String, BufferMethod> bufferMethods = indexBufferMethods(
+        Map<String, BufferMethod> bufferMethods = PayloadExtractor.indexBufferMethods(
             archive, bufferClassName, bufferHierarchy);
 
         Map<Integer, List<SiteData>> sitesByPacket = new TreeMap<>();
@@ -357,74 +356,6 @@ public final class ClientPayloadExtractor
             types.add(call.getReadType());
         }
         return types.toString();
-    }
-
-    private static String findBufferClass(JarArchive archive)
-    {
-        // Reuse the server-side logic: the buffer class is the most-called
-        // virtual call target in packet handler methods.
-        List<MethodNode> handlers = new ArrayList<>();
-        for (ClassUnit unit : archive.getClasses())
-        {
-            for (MethodNode method : unit.getNode().methods)
-            {
-                if (method.desc.endsWith(")Z")
-                    && method.tryCatchBlocks.size() >= 64
-                    && method.tryCatchBlocks.size() % 2 == 0)
-                {
-                    handlers.add(method);
-                }
-            }
-        }
-        Map<String, Integer> classCalls = new LinkedHashMap<>();
-        for (MethodNode h : handlers)
-        {
-            for (AbstractInsnNode insn : h.instructions)
-            {
-                if (insn instanceof MethodInsnNode
-                    && insn.getOpcode() == Opcodes.INVOKEVIRTUAL)
-                {
-                    classCalls.merge(((MethodInsnNode) insn).owner, 1, Integer::sum);
-                }
-            }
-        }
-        return classCalls.entrySet().stream()
-            .max(Map.Entry.comparingByValue())
-            .orElseThrow(() -> new RuntimeException("No buffer class found"))
-            .getKey();
-    }
-
-    private static Map<String, BufferMethod> indexBufferMethods(
-        JarArchive archive, String bufferClassName, Set<String> hierarchyOut)
-    {
-        Map<String, BufferMethod> result = new LinkedHashMap<>();
-        String current = bufferClassName;
-        while (current != null && !"java/lang/Object".equals(current))
-        {
-            hierarchyOut.add(current);
-            ClassNode node = findClass(archive, current);
-            if (node == null) break;
-            for (MethodNode method : node.methods)
-            {
-                if ("<init>".equals(method.name) || "<clinit>".equals(method.name)) continue;
-                String key = method.name + method.desc;
-                if (!result.containsKey(key))
-                {
-                    result.put(key, BufferMethod.of(method));
-                }
-            }
-            current = node.superName;
-        }
-        return result;
-    }
-
-    private static ClassNode findClass(JarArchive archive, String name)
-    {
-        for (ClassUnit unit : archive.getClasses())
-        {
-            if (unit.getNode().name.equals(name)) return unit.getNode();
-        }
-        return null;
     }
 
     public static final class Result
