@@ -222,8 +222,8 @@ java -jar transform-jar/build/libs/rl-suite-1.3.1-all.jar \
 ```
 
 The source directory is replaced only after decompilation succeeds. The verified
-deobfuscated JAR is not modified. This repository's current snapshot is under
-`semantics/injected-client-1.12.37-sources/`.
+deobfuscated JAR is not modified. Checked-in decompiled snapshots are under
+`semantics/`.
 
 Options:
 
