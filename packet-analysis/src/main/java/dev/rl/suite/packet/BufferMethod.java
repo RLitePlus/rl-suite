@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /**
@@ -29,20 +27,16 @@ import org.objectweb.asm.tree.MethodNode;
  */
 public final class BufferMethod
 {
-    private final String obfuscatedName;
-    private final String descriptor;
     private final String readType;
     private final String writeType;
     private final int byteCount;
     private final int writeByteCount;
     private final List<String> writeEncodings;
 
-    private BufferMethod(String obfuscatedName, String descriptor,
-        String readType, int byteCount, String writeType, int writeByteCount,
+    private BufferMethod(String readType, int byteCount,
+        String writeType, int writeByteCount,
         List<String> writeEncodings)
     {
-        this.obfuscatedName = obfuscatedName;
-        this.descriptor = descriptor;
         this.readType = readType;
         this.byteCount = byteCount;
         this.writeType = writeType;
@@ -68,8 +62,8 @@ public final class BufferMethod
 
         List<String> encodings = extractWriteEncodings(method, bastoreCount);
 
-        return new BufferMethod(method.name, method.desc,
-            readType, baloadCount, writeType, bastoreCount, encodings);
+        return new BufferMethod(readType, baloadCount,
+            writeType, bastoreCount, encodings);
     }
 
     private static List<String> extractWriteEncodings(
@@ -110,10 +104,10 @@ public final class BufferMethod
         {
             if (insn.getOpcode() == Opcodes.BASTORE)
             {
-                AbstractInsnNode prev = skipNonInsn(insn.getPrevious());
+                AbstractInsnNode prev = Instructions.previousExecutable(insn);
                 if (prev != null && prev.getOpcode() == Opcodes.I2B)
                 {
-                    prev = skipNonInsn(prev.getPrevious());
+                    prev = Instructions.previousExecutable(prev);
                 }
                 if (prev != null && prev.getOpcode() == Opcodes.ICONST_0)
                 {
@@ -126,11 +120,11 @@ public final class BufferMethod
 
     private static String classifyBastore(AbstractInsnNode bastore)
     {
-        AbstractInsnNode insn = skipNonInsn(bastore.getPrevious());
+        AbstractInsnNode insn = Instructions.previousExecutable(bastore);
 
         if (insn != null && insn.getOpcode() == Opcodes.I2B)
         {
-            insn = skipNonInsn(insn.getPrevious());
+            insn = Instructions.previousExecutable(insn);
         }
 
         if (insn == null) return "v";
@@ -150,12 +144,9 @@ public final class BufferMethod
             case Opcodes.ISHR:
             case Opcodes.IUSHR:
             {
-                AbstractInsnNode prev = skipNonInsn(insn.getPrevious());
-                if (isConstantPush(prev))
-                {
-                    return "r " + constantValue(prev);
-                }
-                return "v";
+                Integer constant = Instructions.intConstant(
+                    Instructions.previousExecutable(insn));
+                return constant == null ? "v" : "r " + constant;
             }
             default:
                 return "v";
@@ -168,13 +159,15 @@ public final class BufferMethod
      */
     private static int findConstantForAdd(AbstractInsnNode iadd)
     {
-        AbstractInsnNode a = skipNonInsn(iadd.getPrevious());
-        if (isConstantPush(a)) return constantValue(a);
+        AbstractInsnNode a = Instructions.previousExecutable(iadd);
+        Integer constant = Instructions.intConstant(a);
+        if (constant != null) return constant;
 
         if (a != null)
         {
-            AbstractInsnNode b = skipNonInsn(a.getPrevious());
-            if (isConstantPush(b)) return constantValue(b);
+            constant = Instructions.intConstant(
+                Instructions.previousExecutable(a));
+            if (constant != null) return constant;
         }
         return 0;
     }
@@ -185,57 +178,15 @@ public final class BufferMethod
      */
     private static int findMinuend(AbstractInsnNode isub)
     {
-        AbstractInsnNode subtrahend = skipNonInsn(isub.getPrevious());
+        AbstractInsnNode subtrahend = Instructions.previousExecutable(isub);
         if (subtrahend == null) return 0;
-        AbstractInsnNode minuend = skipNonInsn(subtrahend.getPrevious());
-        if (isConstantPush(minuend)) return constantValue(minuend);
+        Integer constant = Instructions.intConstant(
+            Instructions.previousExecutable(subtrahend));
+        if (constant != null) return constant;
 
-        if (isConstantPush(subtrahend)) return constantValue(subtrahend);
+        constant = Instructions.intConstant(subtrahend);
+        if (constant != null) return constant;
         return 0;
-    }
-
-    private static boolean isConstantPush(AbstractInsnNode insn)
-    {
-        if (insn == null) return false;
-        int op = insn.getOpcode();
-        if (op >= Opcodes.ICONST_M1 && op <= Opcodes.ICONST_5) return true;
-        if (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH) return true;
-        return op == Opcodes.LDC && insn instanceof LdcInsnNode
-            && ((LdcInsnNode) insn).cst instanceof Integer;
-    }
-
-    private static int constantValue(AbstractInsnNode insn)
-    {
-        int op = insn.getOpcode();
-        if (op >= Opcodes.ICONST_M1 && op <= Opcodes.ICONST_5)
-        {
-            return op - Opcodes.ICONST_0;
-        }
-        if (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH)
-        {
-            return ((IntInsnNode) insn).operand;
-        }
-        return (Integer) ((LdcInsnNode) insn).cst;
-    }
-
-    private static AbstractInsnNode skipNonInsn(AbstractInsnNode insn)
-    {
-        while (insn != null && insn.getOpcode() == -1)
-        {
-            insn = insn.getPrevious();
-        }
-        return insn;
-    }
-
-    /** The obfuscated name at the revision this was extracted from. */
-    public String getObfuscatedName()
-    {
-        return obfuscatedName;
-    }
-
-    public String getDescriptor()
-    {
-        return descriptor;
     }
 
     /**
@@ -294,12 +245,6 @@ public final class BufferMethod
     public int hashCode()
     {
         return readType.hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return obfuscatedName + descriptor + "[" + readType + "]";
     }
 
     private static char returnTypeChar(String descriptor)

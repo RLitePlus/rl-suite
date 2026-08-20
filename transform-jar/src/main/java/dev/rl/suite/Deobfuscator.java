@@ -3,10 +3,12 @@ package dev.rl.suite;
 import dev.rl.suite.model.JarArchive;
 import dev.rl.suite.pass.NamedAnnotationStripper;
 import dev.rl.suite.pass.PacketHandlerNormalizer;
+import dev.rl.suite.pass.ProvenDecoderNormalizer;
 import dev.rl.suite.pass.CondyConcatNormalizer;
 import dev.rl.suite.pass.UnusedMemberMarker;
 import dev.rl.suite.packet.PacketProfilePolicy;
 import dev.rl.suite.rename.FieldKey;
+import dev.rl.suite.rename.SemanticMap;
 import dev.rl.suite.rename.SymbolRenamer;
 import dev.rl.suite.pipeline.PassContext;
 import dev.rl.suite.pipeline.TransformPass;
@@ -19,7 +21,6 @@ import dev.rl.suite.verify.ArchiveVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,19 @@ public final class Deobfuscator
             config.isPacketProfileExplicit(), inputSha256);
 
         JarArchive archive = JarArchive.read(config.getInput());
+        SemanticMap semanticMap = config.getSemanticMap().isPresent()
+            ? SemanticMap.read(config.getSemanticMap().get(), inputSha256)
+            : SemanticMap.empty();
+        report.putMetric("semantic.classes", semanticMap.getClasses().size());
+        report.putMetric("semantic.fields", semanticMap.getFields().size());
+        report.putMetric("semantic.methods", semanticMap.getMethods().size());
+        if (config.getSemanticMap().isPresent())
+        {
+            report.putMetadata("semantic.map.path", AuditPath.forReport(
+                config.getSemanticMap().get()));
+            report.putMetadata("semantic.map.sha256", Hashing.sha256(
+                config.getSemanticMap().get()));
+        }
         // Before any pass runs: the renamer rewrites field names, and a decoder table
         // keyed by the new names would be useless for reading the original client.
         Map<String, DecoderTable.Decoder> decoders = DecoderTable.extract(archive);
@@ -70,7 +84,7 @@ public final class Deobfuscator
 
         PassContext context = new PassContext(archive, config, report);
         List<TransformationPlan> plans = new ArrayList<>();
-        List<TransformPass> activePasses = defaultPasses(archive, config, report);
+        List<TransformPass> activePasses = defaultPasses(archive, config, report, semanticMap);
         for (TransformPass pass : activePasses)
         {
             plans.add(pass.analyze(context));
@@ -90,7 +104,7 @@ public final class Deobfuscator
     }
 
     private static List<TransformPass> defaultPasses(JarArchive archive,
-        TransformConfig config, AuditReport report)
+        TransformConfig config, AuditReport report, SemanticMap semanticMap)
     {
         Map<FieldKey, String> packetOverrides = config.getPacketProfileMode()
             .resolveOverrides(archive);
@@ -100,12 +114,13 @@ public final class Deobfuscator
         report.putMetadata("packet.profile.selection",
             config.isPacketProfileExplicit() ? "explicit" : "implicit-checksum-pinned");
         report.putMetric("packet.profile.names", packetOverrides.size());
-        return Arrays.asList(
+        return List.of(
             new NamedAnnotationStripper(),
             new PacketHandlerNormalizer(),
             new CondyConcatNormalizer(),
+            new ProvenDecoderNormalizer(),
             new UnusedMemberMarker(),
-            new SymbolRenamer(packetOverrides));
+            new SymbolRenamer(packetOverrides, semanticMap));
     }
 
     private static void validateDistinctPaths(TransformConfig config) throws IOException
@@ -116,6 +131,15 @@ public final class Deobfuscator
         if (sameFile(input, output) || sameFile(input, report) || sameFile(output, report))
         {
             throw new TransformException("Input, output, and report paths must be distinct");
+        }
+        if (config.getSemanticMap().isPresent())
+        {
+            Path semanticMap = config.getSemanticMap().get().toAbsolutePath().normalize();
+            if (sameFile(semanticMap, input) || sameFile(semanticMap, output)
+                || sameFile(semanticMap, report))
+            {
+                throw new TransformException("Semantic map, input, output, and report paths must be distinct");
+            }
         }
     }
 

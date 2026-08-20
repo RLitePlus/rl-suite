@@ -11,7 +11,6 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -347,34 +346,11 @@ public final class BufferInfraExtractor
                         || !mi.name.equals(methodName)
                         || !mi.desc.equals(methodDesc)) continue;
 
-                    AbstractInsnNode prev = insn.getPrevious();
-                    while (prev != null && prev.getOpcode() == -1)
+                    Integer constant = Instructions.intConstant(
+                        Instructions.previousExecutable(insn));
+                    if (constant != null)
                     {
-                        prev = prev.getPrevious();
-                    }
-                    if (prev != null)
-                    {
-                        int op = prev.getOpcode();
-                        if (op >= Opcodes.ICONST_M1
-                            && op <= Opcodes.ICONST_5)
-                        {
-                            return Integer.toString(
-                                op - Opcodes.ICONST_0);
-                        }
-                        if (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH)
-                        {
-                            return Integer.toString(
-                                ((IntInsnNode) prev).operand);
-                        }
-                        if (op == Opcodes.LDC
-                            && prev instanceof LdcInsnNode)
-                        {
-                            Object cst = ((LdcInsnNode) prev).cst;
-                            if (cst instanceof Integer)
-                            {
-                                return cst.toString();
-                            }
-                        }
+                        return constant.toString();
                     }
                 }
             }

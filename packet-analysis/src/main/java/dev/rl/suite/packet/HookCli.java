@@ -2,14 +2,13 @@ package dev.rl.suite.packet;
 
 import dev.rl.suite.model.ClassUnit;
 import dev.rl.suite.model.JarArchive;
+import dev.rl.suite.util.Hashing;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,6 +60,14 @@ public final class HookCli
         else if (options.containsKey("buffer-infra"))
         {
             System.exit(bufferInfra(options));
+        }
+        else if (options.containsKey("extract-semantic-seed"))
+        {
+            System.exit(extractSemanticSeed(options));
+        }
+        else if (options.containsKey("update-semantic"))
+        {
+            System.exit(updateSemantic(options));
         }
         else
         {
@@ -130,7 +137,7 @@ public final class HookCli
         if (options.containsKey("json"))
         {
             Path out = Paths.get(options.get("json"));
-            Files.write(out, writeJson(hooks, options.get("version")).getBytes(StandardCharsets.UTF_8));
+            Files.writeString(out, writeJson(hooks, options.get("version")));
             System.out.println();
             System.out.println("wrote " + hooks.size() + " hooks to " + out);
         }
@@ -408,6 +415,56 @@ public final class HookCli
         return 0;
     }
 
+    // ---- semantic mappings --------------------------------------------
+
+    private static int extractSemanticSeed(Map<String, String> options) throws IOException
+    {
+        Path mappedJar = resolveJar(required(options, "jar").toString());
+        Path rawJar = resolveJar(required(options, "raw-jar").toString());
+        Path output = required(options, "tsv");
+        SemanticMap map = SemanticSeedExtractor.extract(mappedJar, rawJar, options.get("revision"),
+            options.get("source-commit"));
+        map.write(output);
+        System.out.println("wrote " + map.entries().size() + " semantic entries to " + output);
+        return 0;
+    }
+
+    private static int updateSemantic(Map<String, String> options) throws IOException
+    {
+        Path oldJar = resolveJar(required(options, "old-jar").toString());
+        Path newJar = resolveJar(required(options, "new-jar").toString());
+        Path output = required(options, "tsv");
+        SemanticMap oldMap = SemanticMap.read(required(options, "old-map"));
+        Map<String, SemanticOverrides.Override> overrides = options.containsKey("overrides")
+            ? SemanticOverrides.read(required(options, "overrides")) : java.util.Collections.emptyMap();
+        if (options.containsKey("anchors"))
+        {
+            SemanticMap anchors = SemanticMap.read(required(options, "anchors"));
+            String expected = anchors.metadata().get("input.sha256");
+            if (expected == null || !expected.equals(Hashing.sha256(newJar)))
+            {
+                throw new IOException("anchor map input.sha256 does not match " + newJar);
+            }
+            overrides = SemanticOverrides.addAnchors(oldMap, anchors, overrides);
+        }
+        SemanticUpdater.Result result = SemanticUpdater.update(oldJar, newJar, oldMap,
+            options.get("revision"), overrides);
+        System.out.println("matched " + result.classMatches + " class identities");
+        if (result.map == null)
+        {
+            for (String failure : result.failures)
+            {
+                System.err.println("  " + failure);
+            }
+            System.err.println("refusing to publish a partial semantic map ("
+                + result.failures.size() + " unresolved entries)");
+            return 1;
+        }
+        result.map.write(output);
+        System.out.println("wrote " + result.map.entries().size() + " semantic entries to " + output);
+        return 0;
+    }
+
     // ---- shared ---------------------------------------------------------
 
     /** Reads a key under either mapping schema: the version package's or the canonical file's. */
@@ -435,7 +492,7 @@ public final class HookCli
 
     private static String read(Path path) throws IOException
     {
-        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+        return Files.readString(path);
     }
 
     /**
@@ -499,11 +556,8 @@ public final class HookCli
 
     static Map<String, String> parse(String[] args)
     {
-        Set<String> flags = new LinkedHashSet<>();
-        flags.add("derive");
-        flags.add("verify");
-        flags.add("buffer-infra");
-        flags.add("help");
+        Set<String> flags = Set.of("derive", "verify", "buffer-infra",
+            "extract-semantic-seed", "update-semantic", "help");
         Map<String, String> options = new LinkedHashMap<>();
         for (int index = 0; index < args.length; index++)
         {
@@ -543,5 +597,12 @@ public final class HookCli
         System.err.println("      with the declared descriptor. Exit 1 if any is missing.");
         System.err.println("  --buffer-infra --jar JAR");
         System.err.println("      Prints the packet buffer and writer infrastructure.");
+        System.err.println("  --extract-semantic-seed --jar MAPPED --raw-jar RAW --tsv OUT");
+        System.err.println("                            [--revision REV --source-commit HASH]");
+        System.err.println("      Transcribes Devious-style mapping annotations and binds them to RAW.");
+        System.err.println("  --update-semantic --old-jar OLD --new-jar NEW --old-map OLD.tsv");
+        System.err.println("                    --tsv OUT [--revision REV --anchors TARGET.tsv]");
+        System.err.println("                    [--overrides OVERRIDES.tsv]");
+        System.err.println("      Propagates semantic names; publishes nothing on an ambiguous entry.");
     }
 }

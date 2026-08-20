@@ -17,7 +17,9 @@ public final class Main
             "expected-packet-handlers",
             "expected-packet-ranges",
             "expected-condy-sites",
-            "packet-profile");
+            "packet-profile",
+            "semantic-map",
+            "source-output");
 
     private Main()
     {
@@ -26,15 +28,36 @@ public final class Main
     public static void main(String[] args) throws Exception
     {
         Map<String, String> options = parse(args);
-        if (options.containsKey("help") || !options.containsKey("input") || !options.containsKey("output"))
+        if (options.containsKey("help"))
         {
             usage();
-            if (!options.containsKey("help"))
-            {
-                System.exit(2);
-            }
             return;
         }
+
+        if (options.containsKey("decompile"))
+        {
+            if (!options.keySet().containsAll(Set.of("input", "source-output")))
+            {
+                usage();
+                System.exit(2);
+                return;
+            }
+            rejectUnexpectedOptions(options, Set.of("decompile", "input", "source-output"));
+            new SourceDecompiler().decompile(Paths.get(options.get("input")),
+                Paths.get(options.get("source-output")));
+            return;
+        }
+
+        if (!options.keySet().containsAll(Set.of("input", "output")))
+        {
+            usage();
+            System.exit(2);
+            return;
+        }
+        rejectUnexpectedOptions(options, Set.of("input", "output", "report",
+            "expected-malformed-named", "expected-packet-handlers",
+            "expected-packet-ranges", "expected-condy-sites", "packet-profile",
+            "semantic-map"));
 
         Path input = Paths.get(options.get("input"));
         Path output = Paths.get(options.get("output"));
@@ -66,6 +89,10 @@ public final class Main
         {
             builder.packetProfileMode(PacketProfileMode.parse(options.get("packet-profile")));
         }
+        if (options.containsKey("semantic-map"))
+        {
+            builder.semanticMap(Paths.get(options.get("semantic-map")));
+        }
 
         new Deobfuscator().run(builder.build());
     }
@@ -79,6 +106,11 @@ public final class Main
             if ("--help".equals(argument) || "-h".equals(argument))
             {
                 options.put("help", "true");
+                continue;
+            }
+            if ("--decompile".equals(argument))
+            {
+                options.put("decompile", "true");
                 continue;
             }
             if (!argument.startsWith("--") || index + 1 >= args.length)
@@ -98,6 +130,19 @@ public final class Main
         return options;
     }
 
+    private static void rejectUnexpectedOptions(Map<String, String> options,
+        Set<String> allowed)
+    {
+        for (String name : options.keySet())
+        {
+            if (!allowed.contains(name))
+            {
+                throw new IllegalArgumentException("Option --" + name
+                    + " is not valid in this mode");
+            }
+        }
+    }
+
     private static void usage()
     {
         System.err.println("Usage: java -jar rl-suite-all.jar --input client.jar --output normalized.jar");
@@ -107,6 +152,9 @@ public final class Main
         System.err.println("       [--expected-condy-sites count]");
         System.err.println("       [--packet-profile osrs-235|osrs-236|osrs-237|osrs-238|osrs-239|osrs-240|");
         System.err.println("                         renamed-client-1.12.31.1|none]");
+        System.err.println("       [--semantic-map semantic-map.tsv]");
         System.err.println("Omitting --packet-profile auto-selects osrs-239 only for checksum-pinned inputs.");
+        System.err.println("       java -jar rl-suite-all.jar --decompile --input normalized.jar");
+        System.err.println("                         --source-output sources");
     }
 }

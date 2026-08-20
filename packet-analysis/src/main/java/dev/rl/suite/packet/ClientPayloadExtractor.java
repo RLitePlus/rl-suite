@@ -13,9 +13,7 @@ import java.util.TreeMap;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
@@ -79,7 +77,7 @@ public final class ClientPayloadExtractor
             int length = idToLength.getOrDefault(id, Integer.MIN_VALUE);
 
             SiteData best = chooseBest(entry.getValue());
-            payloads.put(id, new PacketPayload(id, length, best.writes,
+            payloads.put(id, new PacketPayload(length, best.writes,
                 best.callDescs, best.fieldDescs, best.constants,
                 best.rawFieldRefs, best.rawCallRefs,
                 best.insnCount, best.branchCount));
@@ -89,7 +87,7 @@ public final class ClientPayloadExtractor
             for (SiteData site : entry.getValue())
             {
                 if (site.writes.isEmpty()) continue;
-                PacketPayload variant = new PacketPayload(id, length, site.writes,
+                PacketPayload variant = new PacketPayload(length, site.writes,
                     site.callDescs, site.fieldDescs, site.constants,
                     site.rawFieldRefs, site.rawCallRefs,
                     site.insnCount, site.branchCount);
@@ -108,7 +106,7 @@ public final class ClientPayloadExtractor
             if (!payloads.containsKey(id))
             {
                 int length = idToLength.getOrDefault(id, Integer.MIN_VALUE);
-                payloads.put(id, new PacketPayload(id, length,
+                payloads.put(id, new PacketPayload(length,
                     Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(),
@@ -241,20 +239,10 @@ public final class ClientPayloadExtractor
                 branchCount++;
             }
 
-            int op = walk.getOpcode();
-            if (op >= Opcodes.ICONST_M1 && op <= Opcodes.ICONST_5)
+            Integer constant = Instructions.intConstant(walk);
+            if (constant != null)
             {
-                constants.add(op - Opcodes.ICONST_0);
-            }
-            else if (walk instanceof IntInsnNode
-                && (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH))
-            {
-                constants.add(((IntInsnNode) walk).operand);
-            }
-            else if (walk instanceof LdcInsnNode
-                && ((LdcInsnNode) walk).cst instanceof Integer)
-            {
-                constants.add((Integer) ((LdcInsnNode) walk).cst);
+                constants.add(constant);
             }
 
             walk = walk.getOpcode() == Opcodes.GOTO

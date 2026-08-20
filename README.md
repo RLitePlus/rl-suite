@@ -180,11 +180,9 @@ but assign different ids, and are a different protocol.
 
 ## Requirements
 
-- A JDK that Gradle 9 supports, so Java 17 through 24. Set `JAVA_HOME` to one of
-  those if your default is newer.
-- Gradle 9.
-- The code itself compiles and runs on Java 11 through a Gradle toolchain, which
-  is downloaded for you.
+- Java 17 or newer. Set `JAVA_HOME` if your default JDK is older.
+- The checked-in `./gradlew` wrapper (Gradle 8.12.1).
+- The build uses a Java 17 toolchain.
 
 ## Deobfuscate a client
 
@@ -197,7 +195,7 @@ curl -O https://repo.runelite.net/net/runelite/injected-client/1.12.34/injected-
 **2. Build the tool.**
 
 ```shell
-gradle :transform-jar:shadedJar
+./gradlew :transform-jar:shadedJar
 ```
 
 **3. Run it.** `--packet-profile` is optional. Without it you still get a full
@@ -210,11 +208,21 @@ java -jar transform-jar/build/libs/rl-suite-1.3.1-all.jar \
   --input  injected-client-1.12.34.jar \
   --output injected-client-1.12.34-deob.jar \
   --report audit.json \
-  --packet-profile osrs-240
+  --packet-profile osrs-240 \
+  --semantic-map semantic.tsv
 ```
 
-**4. Decompile the output** with Vineflower, or open it in a decompiler of your
-choice.
+**4. Decompile the output** with the bundled Vineflower 1.11.2 integration:
+
+```shell
+java -jar transform-jar/build/libs/rl-suite-1.3.1-all.jar \
+  --decompile \
+  --input injected-client-1.12.34-deob.jar \
+  --source-output injected-client-1.12.34-sources
+```
+
+The source directory is replaced only after decompilation succeeds. The verified
+deobfuscated JAR is not modified.
 
 Options:
 
@@ -223,6 +231,7 @@ Options:
 | `--input`, `--output` | Required. The input is never modified. |
 | `--report` | Writes an audit JSON with every metric shown above. |
 | `--packet-profile` | `osrs-235` through `osrs-240`, `renamed-client-1.12.31.1`, or `none`. Names the packet fields; everything else is unaffected. Auto-selected only for inputs whose checksum is known, so pass it. |
+| `--semantic-map` | Optional checksum-bound map of reviewed class, field, and method names. Without it, deterministic generic names are used. |
 | `--expected-malformed-named`<br>`--expected-packet-handlers`<br>`--expected-packet-ranges`<br>`--expected-condy-sites` | Pin a count. The run fails if the input does not match, instead of guessing. |
 
 **Revisions 235 to 238 need `--expected-packet-handlers`.** The tool looks for
@@ -246,7 +255,7 @@ one revision can differ. Every build tested so far:
 | 237 | 4, except 1.12.20 which has 5 | 243 |
 | 238 | 4, except 1.12.22.1 which has 5 | 256 |
 | 239 | 5 (the default, nothing to pass) | 250 |
-| 240 | 5 (the default, nothing to pass) | 252 |
+| 240 | 5, except 1.12.37-SNAPSHOT which has 6 | 252 |
 
 Each build's own count is recorded as `packet.handlers.matched` in its audit
 report under `data/rev-<n>/audit/`.
@@ -308,7 +317,7 @@ things two revisions apart — at 1.12.33 `dj` is `TileItem`, at 1.12.35 it is
 class.
 
 ```shell
-gradle :packet-analysis:shadedJar
+./gradlew :packet-analysis:shadedJar
 java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar --help
 ```
 
@@ -317,6 +326,8 @@ java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar --help
 | `--derive --jar NEW.jar` | Locates each hook in a client JAR. |
 | `--verify --jar JAR --mappings M.json` | Checks every class, field and method a mapping file names exists in that JAR with the declared descriptor. Exits 1 if any is missing. |
 | `--buffer-infra --jar JAR` | Prints the packet buffer and writer infrastructure: the buffer class and its offset multipliers, `ClientPacket`, `PacketBufferNode`, `PacketWriter` and its ISAAC field. |
+| `--extract-semantic-seed --jar MAPPED --raw-jar RAW --tsv OUT` | Transcribes Devious-style mapping annotations and binds them to the exact raw JAR checksum. |
+| `--update-semantic --old-jar OLD --new-jar NEW --old-map MAP --tsv OUT` | Carries semantic names to a new revision using reciprocal structural matches. Any unresolved entry prevents output. |
 
 Every rule is anchored on something the injector cannot rename — an interface a
 class declares, or an injected public getter — and reads the answer out of the
@@ -350,20 +361,72 @@ what caught a bug in the scene-selection rule while it was being written.
 `--derive` finds names, not meanings. That a field is called `pathLength` is
 still a claim to check against a running client.
 
+The checksum-bound maps at `data/semantic/1.12.11.tsv` through
+`data/semantic/1.12.14.tsv` are reproduced directly from each annotated Devious
+client and matching official injected client. `1.12.14.1.tsv` is the exact
+structural continuation, and `rev-235.tsv` is the original 1.12.11 seed retained
+under its game revision:
+
+```shell
+java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar \
+  --extract-semantic-seed --jar mapped-235.jar --raw-jar injected-client-1.12.11.jar \
+  --tsv semantic-235.tsv --revision 235 --source-commit COMMIT
+
+java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar \
+  --update-semantic --old-jar injected-client-1.12.11.jar --new-jar injected-client-next.jar \
+  --old-map semantic-235.tsv --tsv semantic-next.tsv --revision NEXT
+```
+
+The updater is intentionally fail-closed. A revision that changes or removes a
+semantic class still needs an explicit reviewed transition; similarity alone is
+not permission to publish a partial map.
+
+The known transitions from 1.12.11 through 1.12.14.1 reproduce all 4,225 or
+4,226 identities with zero false or missing rows. The true
+1.12.14.1→1.12.15 reobfuscation reset remains intentionally unpublished until
+every unresolved identity has reviewed evidence.
+
+`data/semantic/anchors/` contains the smaller checksum-bound set that has passed
+that stricter bar: 136 identities at 1.12.15 and 113 identities carried through
+the current 1.12.37 snapshot. These are valid semantic maps for analysis, but
+they are deliberately not presented as complete replacements for the 4,226-row
+pre-reset map. Reviewed exceptional transitions live in
+`data/semantic/overrides/`.
+
+`--overrides` accepts eight tab-separated columns with comments beginning `#`:
+`kind`, old owner/name/descriptor, `map` or `drop`, and new owner/name/descriptor.
+Class identities use `-` for member name and descriptor. A drop uses `-` in all
+three target columns. Every override must name an existing old semantic entry;
+every mapped target must exist in the new JAR.
+
+`--anchors TARGET.tsv` accepts a partial semantic map for the new JAR. Its
+`input.sha256` must match that JAR. Unique semantic identities shared with the
+old map become reviewed transitions before structural propagation. Member
+identities include the semantic owner class, so common names in unrelated
+classes do not collide. Equally ambiguous overload groups remain structural
+matches rather than guessed; asymmetric ambiguity and conflicts with
+`--overrides` are rejected.
+
+```text
+class<TAB>ea<TAB>-<TAB>-<TAB>drop<TAB>-<TAB>-<TAB>-
+field<TAB>og<TAB>ar<TAB>Lea;<TAB>map<TAB>NEW_OWNER<TAB>NEW_NAME<TAB>LNEW_TYPE;
+```
+
 ## What it does not do
 
 - It is not a general OSRS gamepack deobfuscator. It expects RuneLite's already
   injected client.
-- It does not recover meaningful names beyond the packet profiles. `field33` is
+- Without a reviewed semantic map it does not infer meanings. `field33` is
   stable and traceable, not descriptive.
-- It does not undo control-flow flattening, arithmetic multipliers, or string
-  encryption.
+- It normalizes only arithmetic multipliers proven safe across every access to
+  a field. It does not guess through irregular arithmetic, control-flow
+  flattening, or string encryption.
 - Passing bytecode verification proves the output is structurally valid. It does
   not prove it behaves identically to the input.
 
 ## How it works
 
-Five passes, in order. Each finishes its analysis before anything is modified,
+Six passes, in order. Each finishes its analysis before anything is modified,
 and the result is verified twice before it is written.
 
 | Pass | What it does |
@@ -371,6 +434,7 @@ and the result is verified twice before it is written.
 | `strip-malformed-named` | Removes the invisible array-valued `javax.inject.Named` annotations that break decompilers, keeping the four legitimate ones. |
 | `normalize-packet-handlers` | Collapses each packet reader's fragmented try/catch entries down to two and flattens the guarded return gaps. |
 | `normalize-condy-concats` | Rewrites three nested constant-dynamic string concatenations as ordinary bytecode. This is why the output is analysis-only. |
+| `normalize-proven-decoders` | Removes numeric field multipliers only when every read and write proves the same reversible encoding. |
 | `mark-unused-members` | Marks members nothing references with `@ToRemove`. It never deletes anything. |
 | `rename-symbols` | Gives every class, field and method a deterministic name, and records the original in a RuneLite mapping annotation. |
 

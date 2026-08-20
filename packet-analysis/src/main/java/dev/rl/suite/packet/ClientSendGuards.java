@@ -15,9 +15,7 @@ import java.util.TreeSet;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TableSwitchInsnNode;
@@ -388,16 +386,16 @@ public final class ClientSendGuards
     {
         int op = jump.getOpcode();
         if (op != Opcodes.IF_ICMPEQ && op != Opcodes.IF_ICMPNE) return null;
-        AbstractInsnNode second = previousReal(jump);
+        AbstractInsnNode second = Instructions.previousExecutable(jump);
         if (second == null) return null;
-        AbstractInsnNode first = previousReal(second);
+        AbstractInsnNode first = Instructions.previousExecutable(second);
         if (first == null) return null;
 
-        Integer value = constantOf(second);
+        Integer value = Instructions.intConstant(second);
         boolean loadThenConstant = value != null && isIntLoad(first);
         if (!loadThenConstant)
         {
-            value = constantOf(first);
+            value = Instructions.intConstant(first);
             if (value == null || !isIntLoad(second)) return null;
         }
         return Math.abs(value) <= MAX_ACTION_VALUE ? value : null;
@@ -408,25 +406,4 @@ public final class ClientSendGuards
         return n instanceof VarInsnNode && n.getOpcode() == Opcodes.ILOAD;
     }
 
-    private static AbstractInsnNode previousReal(AbstractInsnNode n)
-    {
-        AbstractInsnNode p = n.getPrevious();
-        while (p != null && p.getOpcode() < 0) p = p.getPrevious();
-        return p;
-    }
-
-    private static Integer constantOf(AbstractInsnNode n)
-    {
-        int op = n.getOpcode();
-        if (op >= Opcodes.ICONST_M1 && op <= Opcodes.ICONST_5) return op - Opcodes.ICONST_0;
-        if (n instanceof IntInsnNode && (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH))
-        {
-            return ((IntInsnNode) n).operand;
-        }
-        if (n instanceof LdcInsnNode && ((LdcInsnNode) n).cst instanceof Integer)
-        {
-            return (Integer) ((LdcInsnNode) n).cst;
-        }
-        return null;
-    }
 }

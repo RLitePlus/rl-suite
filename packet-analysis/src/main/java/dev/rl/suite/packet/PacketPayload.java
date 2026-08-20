@@ -18,7 +18,6 @@ import java.util.TreeMap;
  */
 public final class PacketPayload
 {
-    private final int packetId;
     private final int declaredLength;
     private final List<ReadCall> reads;
     private final List<String> callDescriptors;
@@ -29,56 +28,55 @@ public final class PacketPayload
     private final int insnCount;
     private final int branchCount;
 
-    public PacketPayload(int packetId, List<ReadCall> reads)
+    public PacketPayload(List<ReadCall> reads)
     {
-        this(packetId, Integer.MIN_VALUE, reads,
+        this(Integer.MIN_VALUE, reads,
             Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), 0, 0);
     }
 
-    public PacketPayload(int packetId, int declaredLength, List<ReadCall> reads)
+    public PacketPayload(int declaredLength, List<ReadCall> reads)
     {
-        this(packetId, declaredLength, reads,
+        this(declaredLength, reads,
             Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), 0, 0);
     }
 
-    public PacketPayload(int packetId, int declaredLength, List<ReadCall> reads,
+    public PacketPayload(int declaredLength, List<ReadCall> reads,
         List<String> callDescriptors, List<String> fieldDescriptors,
         int insnCount, int branchCount)
     {
-        this(packetId, declaredLength, reads, callDescriptors, fieldDescriptors,
+        this(declaredLength, reads, callDescriptors, fieldDescriptors,
             Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), insnCount, branchCount);
     }
 
-    public PacketPayload(int packetId, int declaredLength, List<ReadCall> reads,
+    public PacketPayload(int declaredLength, List<ReadCall> reads,
         List<String> callDescriptors, List<String> fieldDescriptors,
         List<Integer> constants, int insnCount, int branchCount)
     {
-        this(packetId, declaredLength, reads, callDescriptors, fieldDescriptors,
+        this(declaredLength, reads, callDescriptors, fieldDescriptors,
             constants, Collections.emptyList(), Collections.emptyList(),
             insnCount, branchCount);
     }
 
-    public PacketPayload(int packetId, int declaredLength, List<ReadCall> reads,
+    public PacketPayload(int declaredLength, List<ReadCall> reads,
         List<String> callDescriptors, List<String> fieldDescriptors,
         List<Integer> constants, List<String> rawFieldRefs,
         int insnCount, int branchCount)
     {
-        this(packetId, declaredLength, reads, callDescriptors, fieldDescriptors,
+        this(declaredLength, reads, callDescriptors, fieldDescriptors,
             constants, rawFieldRefs, Collections.emptyList(),
             insnCount, branchCount);
     }
 
-    public PacketPayload(int packetId, int declaredLength, List<ReadCall> reads,
+    public PacketPayload(int declaredLength, List<ReadCall> reads,
         List<String> callDescriptors, List<String> fieldDescriptors,
         List<Integer> constants, List<String> rawFieldRefs,
         List<String> rawCallRefs, int insnCount, int branchCount)
     {
-        this.packetId = packetId;
         this.declaredLength = declaredLength;
         this.reads = Collections.unmodifiableList(new ArrayList<>(reads));
         List<String> sortedCalls = new ArrayList<>(callDescriptors);
@@ -94,11 +92,6 @@ public final class PacketPayload
         this.rawCallRefs = Collections.unmodifiableList(new ArrayList<>(rawCallRefs));
         this.insnCount = insnCount;
         this.branchCount = branchCount;
-    }
-
-    public int getPacketId()
-    {
-        return packetId;
     }
 
     public List<ReadCall> getReads()

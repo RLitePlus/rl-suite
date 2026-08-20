@@ -49,7 +49,7 @@ public final class NamedAnnotationStripper implements TransformPass
         return new Plan(before);
     }
 
-    public static Counts count(PassContext context)
+    private static Counts count(PassContext context)
     {
         long malformed = 0;
         long scalar = 0;
@@ -135,11 +135,6 @@ public final class NamedAnnotationStripper implements TransformPass
         return new Counts(malformed, scalar, unknown);
     }
 
-    public static boolean isMalformedNamed(AnnotationNode annotation)
-    {
-        return classify(annotation, false) == Classification.POISON;
-    }
-
     static Classification classify(AnnotationNode annotation, boolean visible)
     {
         if (!NAMED_DESCRIPTOR.equals(annotation.desc))
@@ -184,33 +179,19 @@ public final class NamedAnnotationStripper implements TransformPass
         UNKNOWN
     }
 
-    public static final class Counts
+    private static final class Counts
     {
         private final long malformed;
         private final long scalar;
         private final long unknown;
 
-        public Counts(long malformed, long scalar, long unknown)
+        private Counts(long malformed, long scalar, long unknown)
         {
             this.malformed = malformed;
             this.scalar = scalar;
             this.unknown = unknown;
         }
 
-        public long getMalformed()
-        {
-            return malformed;
-        }
-
-        public long getScalar()
-        {
-            return scalar;
-        }
-
-        public long getUnknown()
-        {
-            return unknown;
-        }
     }
 
     private static final class Plan implements TransformationPlan

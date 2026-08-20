@@ -39,10 +39,4 @@ public final class PacketProfilePolicy
             + ". Confirm the protocol independently and select --packet-profile "
             + mode.getOptionName() + " explicitly, or select --packet-profile none.");
     }
-
-    public static boolean isImplicitlyAccepted(PacketProfileMode mode, String inputSha256)
-    {
-        return mode == PacketProfileMode.OSRS_239
-            && IMPLICIT_OSRS_239_INPUTS.contains(inputSha256);
-    }
 }

@@ -15,8 +15,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TryCatchBlockNode;
@@ -91,7 +89,7 @@ public final class PayloadExtractor
             if (!payloads.containsKey(id))
             {
                 int length = idToLength.getOrDefault(id, Integer.MIN_VALUE);
-                payloads.put(id, new PacketPayload(id, length,
+                payloads.put(id, new PacketPayload(length,
                     Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(),
                     Collections.emptyList(), Collections.emptyList(),
@@ -183,27 +181,17 @@ public final class PayloadExtractor
                     branchCount++;
                 }
 
-                int op = insn.getOpcode();
-                if (op >= Opcodes.ICONST_M1 && op <= Opcodes.ICONST_5)
+                Integer constant = Instructions.intConstant(insn);
+                if (constant != null)
                 {
-                    constants.add(op - Opcodes.ICONST_0);
-                }
-                else if (insn instanceof IntInsnNode
-                    && (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH))
-                {
-                    constants.add(((IntInsnNode) insn).operand);
-                }
-                else if (insn instanceof LdcInsnNode
-                    && ((LdcInsnNode) insn).cst instanceof Integer)
-                {
-                    constants.add((Integer) ((LdcInsnNode) insn).cst);
+                    constants.add(constant);
                 }
             }
 
             if (packetId != null)
             {
                 int length = idToLength.getOrDefault(packetId, Integer.MIN_VALUE);
-                payloads.put(packetId, new PacketPayload(packetId, length, reads,
+                payloads.put(packetId, new PacketPayload(length, reads,
                     callDescs, fieldDescs, constants, rawFieldRefs,
                     rawCallRefs, insnCount, branchCount));
             }

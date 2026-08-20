@@ -41,59 +41,21 @@ public final class HookExtractor
      * to tell "the rule found nothing" apart from "the control never recorded
      * that hook", which are very different failures.
      */
-    public static final Set<String> SUPPORTED_KEYS;
-
-    static
-    {
-        Set<String> keys = new LinkedHashSet<>();
-        keys.add("Actor");
-        keys.add("Actor.pathLength");
-        keys.add("Scene");
-        keys.add("Scene.selectedX");
-        keys.add("Scene.selectedY");
-        keys.add("Scene.viewportWalking");
-        keys.add("Scene.checkClick");
-        keys.add("TileItem");
-        keys.add("TileItem.worldViewId");
-        keys.add("KeyHandler");
-        keys.add("KeyHandler.idleTicks");
-        keys.add("KeyHandler_instance");
-        keys.add("Widgets");
-        keys.add("Widgets.Widget_interfaceComponents");
-        keys.add("widgets");
-        keys.add("username");
-        keys.add("password");
-        keys.add("otp");
-        keys.add("loginIndex");
-        keys.add("isMenuOpen");
-        keys.add("MouseHandler");
-        keys.add("MouseHandler_instance");
-        keys.add("MouseHandler_lastPressedTimeMillis");
-        keys.add("loginResponse1");
-        keys.add("loginResponse2");
-        keys.add("loginResponse3");
-        keys.add("Player");
-        keys.add("Player.actions");
-        keys.add("WidgetContainer");
-        keys.add("WidgetContainer.draggedHolder");
-        keys.add("DraggedWidgetHolder");
-        keys.add("DraggedWidgetHolder.draggedWidget");
-        keys.add("JX_ACCESS_TOKEN");
-        keys.add("JX_REFRESH_TOKEN");
-        keys.add("JX_SESSION_ID");
-        keys.add("JX_CHARACTER_ID");
-        keys.add("JX_DISPLAY_NAME");
-        keys.add("sessionId");
-        keys.add("characterId");
-        keys.add("displayName");
-        keys.add("AccountType");
-        keys.add("loginMode");
-        keys.add("normalLoginMode");
-        keys.add("oAuthLoginMode");
-        keys.add("loadWorlds");
-        keys.add("Login_promptCredentials");
-        SUPPORTED_KEYS = java.util.Collections.unmodifiableSet(keys);
-    }
+    public static final Set<String> SUPPORTED_KEYS = Set.of(
+        "Actor", "Actor.pathLength", "Scene", "Scene.selectedX",
+        "Scene.selectedY", "Scene.viewportWalking", "Scene.checkClick",
+        "TileItem", "TileItem.worldViewId", "KeyHandler",
+        "KeyHandler.idleTicks", "KeyHandler_instance", "Widgets",
+        "Widgets.Widget_interfaceComponents", "widgets", "username",
+        "password", "otp", "loginIndex", "isMenuOpen", "MouseHandler",
+        "MouseHandler_instance", "MouseHandler_lastPressedTimeMillis",
+        "loginResponse1", "loginResponse2", "loginResponse3", "Player",
+        "Player.actions", "WidgetContainer", "WidgetContainer.draggedHolder",
+        "DraggedWidgetHolder", "DraggedWidgetHolder.draggedWidget",
+        "JX_ACCESS_TOKEN", "JX_REFRESH_TOKEN", "JX_SESSION_ID",
+        "JX_CHARACTER_ID", "JX_DISPLAY_NAME", "sessionId", "characterId",
+        "displayName", "AccountType", "loginMode", "normalLoginMode",
+        "oAuthLoginMode", "loadWorlds", "Login_promptCredentials");
 
     private HookExtractor()
     {
@@ -846,8 +808,8 @@ public final class HookExtractor
         Map<String, String> alias = new LinkedHashMap<>();
         alias.put("JX_SESSION_ID", "sessionId");
         alias.put("JX_CHARACTER_ID", "characterId");
-        Set<String> literals = new LinkedHashSet<>(java.util.Arrays.asList(
-            "JX_ACCESS_TOKEN", "JX_REFRESH_TOKEN", "JX_SESSION_ID", "JX_CHARACTER_ID"));
+        Set<String> literals = Set.of(
+            "JX_ACCESS_TOKEN", "JX_REFRESH_TOKEN", "JX_SESSION_ID", "JX_CHARACTER_ID");
         for (ClassNode node : classes.values())
         {
             for (MethodNode method : node.methods)
@@ -1058,7 +1020,8 @@ public final class HookExtractor
         List<Integer> ints = new ArrayList<>();
         for (AbstractInsnNode insn : insns)
         {
-            Integer value = intConstant(insn);
+            Integer value = insn.getOpcode() == Opcodes.ICONST_M1
+                ? null : Instructions.intConstant(insn);
             if (value != null)
             {
                 ints.add(value);
@@ -1075,24 +1038,6 @@ public final class HookExtractor
             }
         }
         return result;
-    }
-
-    private static Integer intConstant(AbstractInsnNode insn)
-    {
-        int op = insn.getOpcode();
-        if (op >= Opcodes.ICONST_0 && op <= Opcodes.ICONST_5)
-        {
-            return op - Opcodes.ICONST_0;
-        }
-        if (op == Opcodes.BIPUSH || op == Opcodes.SIPUSH)
-        {
-            return ((org.objectweb.asm.tree.IntInsnNode) insn).operand;
-        }
-        if (insn instanceof LdcInsnNode && ((LdcInsnNode) insn).cst instanceof Integer)
-        {
-            return (Integer) ((LdcInsnNode) insn).cst;
-        }
-        return null;
     }
 
     /**

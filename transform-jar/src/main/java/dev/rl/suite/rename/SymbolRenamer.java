@@ -31,13 +31,19 @@ public final class SymbolRenamer implements TransformPass
 {
     private static final String LAMBDA_METAFACTORY = "java/lang/invoke/LambdaMetafactory";
     private final Map<FieldKey, String> fieldNameOverrides;
+    private final SemanticMap semanticMap;
 
     public SymbolRenamer()
     {
-        this(Collections.emptyMap());
+        this(Collections.emptyMap(), SemanticMap.empty());
     }
 
     public SymbolRenamer(Map<FieldKey, String> fieldNameOverrides)
+    {
+        this(fieldNameOverrides, SemanticMap.empty());
+    }
+
+    public SymbolRenamer(Map<FieldKey, String> fieldNameOverrides, SemanticMap semanticMap)
     {
         if (fieldNameOverrides == null)
         {
@@ -55,6 +61,7 @@ public final class SymbolRenamer implements TransformPass
             copy.put(key, fieldNameOverrides.get(key));
         }
         this.fieldNameOverrides = Collections.unmodifiableMap(copy);
+        this.semanticMap = java.util.Objects.requireNonNull(semanticMap, "semanticMap");
     }
 
     @Override
@@ -73,7 +80,7 @@ public final class SymbolRenamer implements TransformPass
         RenamePolicy policy = new RenamePolicy();
         HierarchyIndex hierarchy = new HierarchyIndex(symbols);
         SymbolMapping mapping = SymbolMapping.structural(symbols, hierarchy, policy,
-            fieldNameOverrides);
+            fieldNameOverrides, semanticMap);
         validateResourceNames(context, symbols, mapping);
         validateInvokeDynamicNames(symbols, mapping, hierarchy);
         CompilerControlResourceRemapper.Result compilerControl =

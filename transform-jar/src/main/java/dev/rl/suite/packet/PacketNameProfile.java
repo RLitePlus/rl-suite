@@ -28,11 +28,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.IntInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TypeInsnNode;
 
 /**
  * A checksum-pinned packet-name profile. The canonical TSV format records a
@@ -240,7 +236,7 @@ public final class PacketNameProfile
             return null;
         }
 
-        Map<String, Assignment> assignmentsByField = new HashMap<>();
+        Map<String, PacketTableReader.Candidate> assignmentsByField = new HashMap<>();
         for (AbstractInsnNode instruction : initializer.instructions)
         {
             if (!(instruction instanceof FieldInsnNode)
@@ -254,7 +250,8 @@ public final class PacketNameProfile
             {
                 continue;
             }
-            Assignment assignment = parseAssignment(classNode.name, put);
+            PacketTableReader.Candidate assignment = PacketTableReader.parseAssignment(
+                classNode.name, descriptor, put);
             if (assignment == null || assignmentsByField.put(put.name, assignment) != null)
             {
                 return null;
@@ -266,9 +263,10 @@ public final class PacketNameProfile
         }
 
         Map<Integer, FieldKey> fieldsById = new HashMap<>();
-        for (Map.Entry<String, Assignment> field : assignmentsByField.entrySet())
+        for (Map.Entry<String, PacketTableReader.Candidate> field
+            : assignmentsByField.entrySet())
         {
-            Assignment assignment = field.getValue();
+            PacketTableReader.Candidate assignment = field.getValue();
             if (assignment.id < 0 || assignment.id >= profile.entries.size())
             {
                 return null;
@@ -286,75 +284,6 @@ public final class PacketNameProfile
             return null;
         }
         return new PacketClassMatch(classNode.name, fieldsById);
-    }
-
-    private static Assignment parseAssignment(String owner, FieldInsnNode put)
-    {
-        AbstractInsnNode invokeNode = previousExecutable(put);
-        if (!(invokeNode instanceof MethodInsnNode))
-        {
-            return null;
-        }
-        MethodInsnNode invoke = (MethodInsnNode) invokeNode;
-        if (invoke.getOpcode() != Opcodes.INVOKESPECIAL || !owner.equals(invoke.owner)
-            || !"<init>".equals(invoke.name) || !"(II)V".equals(invoke.desc)
-            || invoke.itf)
-        {
-            return null;
-        }
-
-        AbstractInsnNode lengthNode = previousExecutable(invokeNode);
-        AbstractInsnNode idNode = previousExecutable(lengthNode);
-        AbstractInsnNode dupNode = previousExecutable(idNode);
-        AbstractInsnNode newNode = previousExecutable(dupNode);
-        Integer length = integerConstant(lengthNode);
-        Integer id = integerConstant(idNode);
-        if (length == null || id == null || dupNode == null
-            || dupNode.getOpcode() != Opcodes.DUP || !(newNode instanceof TypeInsnNode)
-            || newNode.getOpcode() != Opcodes.NEW
-            || !owner.equals(((TypeInsnNode) newNode).desc))
-        {
-            return null;
-        }
-        return new Assignment(id, length);
-    }
-
-    private static AbstractInsnNode previousExecutable(AbstractInsnNode instruction)
-    {
-        if (instruction == null)
-        {
-            return null;
-        }
-        AbstractInsnNode previous = instruction.getPrevious();
-        while (previous != null && previous.getOpcode() < 0)
-        {
-            previous = previous.getPrevious();
-        }
-        return previous;
-    }
-
-    private static Integer integerConstant(AbstractInsnNode instruction)
-    {
-        if (instruction == null)
-        {
-            return null;
-        }
-        int opcode = instruction.getOpcode();
-        if (opcode >= Opcodes.ICONST_M1 && opcode <= Opcodes.ICONST_5)
-        {
-            return opcode - Opcodes.ICONST_0;
-        }
-        if (instruction instanceof IntInsnNode
-            && (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH))
-        {
-            return ((IntInsnNode) instruction).operand;
-        }
-        if (instruction instanceof LdcInsnNode
-            && ((LdcInsnNode) instruction).cst instanceof Integer)
-        {
-            return (Integer) ((LdcInsnNode) instruction).cst;
-        }
-        return null;
     }
 
     private static PacketNameProfile parse(byte[] bytes, String expectedSha256, String source)
@@ -573,18 +502,6 @@ public final class PacketNameProfile
         private DirectionProfile(List<ProfileEntry> entries)
         {
             this.entries = entries;
-        }
-    }
-
-    private static final class Assignment
-    {
-        private final int id;
-        private final int length;
-
-        private Assignment(int id, int length)
-        {
-            this.id = id;
-            this.length = length;
         }
     }
 

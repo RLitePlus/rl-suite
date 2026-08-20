@@ -134,7 +134,7 @@ public final class PayloadMapper
         {
             refPrev = sourceToTarget.size();
             resolveByRefMapping(srcPayloads, tgtPayloads,
-                sourceToTarget, matchedSrc, matchedTgt, Collections.emptyMap());
+                sourceToTarget, matchedSrc, matchedTgt);
         }
         while (sourceToTarget.size() > refPrev);
 
@@ -272,37 +272,11 @@ public final class PayloadMapper
         Set<Integer> matchedSrc, Set<Integer> matchedTgt,
         Set<Integer> excludeSrc)
     {
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            if (excludeSrc.contains(e.getKey())) continue;
-            String key = keyFn.apply(e.getValue());
-            srcByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            String key = keyFn.apply(e.getValue());
-            tgtByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(e.getKey());
-        }
-
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                sourceToTarget.put(srcId, tgtId);
-                matchedSrc.add(srcId);
-                matchedTgt.add(tgtId);
-            }
-        }
+        Map<String, List<Integer>> srcByKey = groupBy(srcPayloads, keyFn,
+            matchedSrc, excludeSrc);
+        Map<String, List<Integer>> tgtByKey = groupBy(tgtPayloads, keyFn,
+            matchedTgt, Collections.emptySet());
+        matchUniqueGroups(srcByKey, tgtByKey, sourceToTarget, matchedSrc, matchedTgt);
     }
 
     private static Set<Integer> multisetCollisionSet(
@@ -375,21 +349,10 @@ public final class PayloadMapper
         Map<Integer, Integer> sourceToTarget,
         Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            srcByKey.computeIfAbsent(keyFn.apply(e.getValue()),
-                k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            tgtByKey.computeIfAbsent(keyFn.apply(e.getValue()),
-                k -> new ArrayList<>()).add(e.getKey());
-        }
+        Map<String, List<Integer>> srcByKey = groupBy(srcPayloads, keyFn,
+            matchedSrc, Collections.emptySet());
+        Map<String, List<Integer>> tgtByKey = groupBy(tgtPayloads, keyFn,
+            matchedTgt, Collections.emptySet());
 
         for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
         {
@@ -436,20 +399,10 @@ public final class PayloadMapper
         Map<Integer, Integer> sourceToTarget,
         Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            srcByKey.computeIfAbsent(keyFn.apply(e.getValue()),
-                k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            tgtByKey.computeIfAbsent(keyFn.apply(e.getValue()),
-                k -> new ArrayList<>()).add(e.getKey());
-        }
+        Map<String, List<Integer>> srcByKey = groupBy(srcPayloads, keyFn,
+            matchedSrc, Collections.emptySet());
+        Map<String, List<Integer>> tgtByKey = groupBy(tgtPayloads, keyFn,
+            matchedTgt, Collections.emptySet());
         for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
         {
             List<Integer> srcIds = srcEntry.getValue();
@@ -474,10 +427,10 @@ public final class PayloadMapper
         Map<Integer, Integer> sourceToTarget,
         Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
-        Map<String, List<Integer>> srcByMultiset = groupByAll(srcPayloads,
-            PayloadMapper::multisetKey);
-        Map<String, List<Integer>> tgtByMultiset = groupByAll(tgtPayloads,
-            PayloadMapper::multisetKey);
+        Map<String, List<Integer>> srcByMultiset = groupBy(srcPayloads,
+            PayloadMapper::multisetKey, Collections.emptySet(), Collections.emptySet());
+        Map<String, List<Integer>> tgtByMultiset = groupBy(tgtPayloads,
+            PayloadMapper::multisetKey, Collections.emptySet(), Collections.emptySet());
 
         Set<Integer> withdrawn = new HashSet<>();
         for (Map.Entry<Integer, Integer> entry : sourceToTarget.entrySet())
@@ -520,16 +473,6 @@ public final class PayloadMapper
             if (group.size() > 1) collision.addAll(group);
         }
         return collision;
-    }
-
-    public static Result mapClientPayloads(
-        Map<Integer, PacketPayload> srcPayloads,
-        Map<Integer, PacketPayload> tgtPayloads,
-        Map<Integer, List<PacketPayload>> srcVariants,
-        Map<Integer, List<PacketPayload>> tgtVariants)
-    {
-        return mapClientPayloads(srcPayloads, tgtPayloads,
-            srcVariants, tgtVariants, Collections.emptyMap());
     }
 
     /**
@@ -618,35 +561,6 @@ public final class PayloadMapper
     }
 
     /**
-     * Pairs only the client packets that can be paired without guessing: those
-     * sent for a game action that names exactly one packet in each revision.
-     *
-     * <p>For carrying names into a revision that has none, a wrong name is worse
-     * than a missing one. Across revisions 235 to 240 this rule pairs 238 of the
-     * 519 packets that exist in both revisions of a hop and gets none of them
-     * wrong, where matching everything pairs 444 correctly and 64 wrongly. Use
-     * this when the output is going to be trusted, and
-     * {@link #mapClientPayloads} when partial and occasionally wrong is fine.
-     */
-    public static Result mapClientPayloadsConfidently(
-        Map<Integer, PacketPayload> srcPayloads,
-        Map<Integer, PacketPayload> tgtPayloads,
-        Map<Integer, Set<String>> srcGuards,
-        Map<Integer, Set<String>> tgtGuards)
-    {
-        Map<String, Integer> srcByAction = uniqueByGuard(srcGuards, srcPayloads.keySet());
-        Map<String, Integer> tgtByAction = uniqueByGuard(tgtGuards, tgtPayloads.keySet());
-
-        Map<Integer, Integer> pairs = new TreeMap<>();
-        for (Map.Entry<String, Integer> e : srcByAction.entrySet())
-        {
-            Integer tgt = tgtByAction.get(e.getKey());
-            if (tgt != null) pairs.put(e.getValue(), tgt);
-        }
-        return fromKnownPairs(pairs, srcPayloads.size(), tgtPayloads.size());
-    }
-
-    /**
      * A result built from a correspondence that is already known rather than
      * inferred, for callers that hold published names for both revisions.
      */
@@ -719,21 +633,7 @@ public final class PayloadMapper
         Map<Integer, PacketPayload> srcPayloads,
         Map<Integer, PacketPayload> tgtPayloads,
         Map<Integer, List<PacketPayload>> srcVariants,
-        Map<Integer, List<PacketPayload>> tgtVariants,
-        Map<String, String> externalClassMap)
-    {
-        return mapClientPayloads(srcPayloads, tgtPayloads,
-            srcVariants, tgtVariants, externalClassMap,
-            Collections.emptyMap());
-    }
-
-    public static Result mapClientPayloads(
-        Map<Integer, PacketPayload> srcPayloads,
-        Map<Integer, PacketPayload> tgtPayloads,
-        Map<Integer, List<PacketPayload>> srcVariants,
-        Map<Integer, List<PacketPayload>> tgtVariants,
-        Map<String, String> externalClassMap,
-        Map<String, String> externalRefMap)
+        Map<Integer, List<PacketPayload>> tgtVariants)
     {
         Map<Integer, Integer> sourceToTarget = new TreeMap<>();
         Set<Integer> matchedSrc = new HashSet<>();
@@ -928,8 +828,7 @@ public final class PayloadMapper
         {
             refPrev = sourceToTarget.size();
             resolveByRefMapping(srcPayloads, tgtPayloads,
-                sourceToTarget, matchedSrc, matchedTgt,
-                externalClassMap, externalRefMap);
+                sourceToTarget, matchedSrc, matchedTgt);
         }
         while (sourceToTarget.size() > refPrev);
 
@@ -1188,8 +1087,7 @@ public final class PayloadMapper
                         Collections.emptySet());
                 }
                 resolveByRefMapping(srcPayloads, tgtPayloads,
-                    sourceToTarget, matchedSrc, matchedTgt,
-                    externalClassMap, externalRefMap);
+                    sourceToTarget, matchedSrc, matchedTgt);
             }
             while (sourceToTarget.size() > recoveryPrev);
         }
@@ -1198,214 +1096,6 @@ public final class PayloadMapper
         return new Result(
             Collections.unmodifiableMap(sourceToTarget),
             srcPayloads.size(), tgtPayloads.size(), ambiguous, 0);
-    }
-
-    public static Result mapMultiSite(
-        Map<Integer, List<PacketPayload>> sourceVariants,
-        Map<Integer, List<PacketPayload>> targetVariants)
-    {
-        Map<Integer, Integer> sourceToTarget = new TreeMap<>();
-        Set<Integer> matchedSrc = new HashSet<>();
-        Set<Integer> matchedTgt = new HashSet<>();
-
-        // Build variant-set fingerprints (sorted set of all variant signatures)
-        Map<Integer, String> srcVarSet = variantSetKeys(sourceVariants);
-        Map<Integer, String> tgtVarSet = variantSetKeys(targetVariants);
-
-        // Build per-variant inverted index
-        Map<String, Set<Integer>> srcBySig = new LinkedHashMap<>();
-        Map<String, Set<Integer>> tgtBySig = new LinkedHashMap<>();
-        for (Map.Entry<Integer, List<PacketPayload>> e : sourceVariants.entrySet())
-        {
-            for (PacketPayload p : e.getValue())
-            {
-                srcBySig.computeIfAbsent(p.structuralSignature().toString(),
-                    k -> new HashSet<>()).add(e.getKey());
-            }
-        }
-        for (Map.Entry<Integer, List<PacketPayload>> e : targetVariants.entrySet())
-        {
-            for (PacketPayload p : e.getValue())
-            {
-                tgtBySig.computeIfAbsent(p.structuralSignature().toString(),
-                    k -> new HashSet<>()).add(e.getKey());
-            }
-        }
-
-        // Pass 1: unique per-variant structural signature
-        for (Map.Entry<String, Set<Integer>> srcEntry : srcBySig.entrySet())
-        {
-            Set<Integer> srcIds = srcEntry.getValue();
-            Set<Integer> tgtIds = tgtBySig.get(srcEntry.getKey());
-            if (tgtIds == null) continue;
-
-            // Filter out already-matched
-            Set<Integer> availSrc = new HashSet<>(srcIds);
-            availSrc.removeAll(matchedSrc);
-            Set<Integer> availTgt = new HashSet<>(tgtIds);
-            availTgt.removeAll(matchedTgt);
-
-            if (availSrc.size() == 1 && availTgt.size() == 1)
-            {
-                int srcId = availSrc.iterator().next();
-                int tgtId = availTgt.iterator().next();
-                sourceToTarget.put(srcId, tgtId);
-                matchedSrc.add(srcId);
-                matchedTgt.add(tgtId);
-            }
-        }
-
-        // Pass 2: variant-set fingerprint (sorted set of all variant sigs)
-        matchByIndex(srcVarSet, tgtVarSet, sourceToTarget, matchedSrc, matchedTgt);
-
-        // Build best-payload maps for enriched passes
-        Map<Integer, PacketPayload> srcBest = new TreeMap<>();
-        Map<Integer, PacketPayload> tgtBest = new TreeMap<>();
-        for (Map.Entry<Integer, List<PacketPayload>> e : sourceVariants.entrySet())
-        {
-            if (!e.getValue().isEmpty())
-            {
-                srcBest.put(e.getKey(), e.getValue().get(0));
-            }
-        }
-        for (Map.Entry<Integer, List<PacketPayload>> e : targetVariants.entrySet())
-        {
-            if (!e.getValue().isEmpty())
-            {
-                tgtBest.put(e.getKey(), e.getValue().get(0));
-            }
-        }
-
-        // Enriched passes + variant-count-aware keys
-        Map<Integer, Integer> srcVarCount = new LinkedHashMap<>();
-        Map<Integer, Integer> tgtVarCount = new LinkedHashMap<>();
-        for (Map.Entry<Integer, List<PacketPayload>> e : sourceVariants.entrySet())
-        {
-            srcVarCount.put(e.getKey(), e.getValue().size());
-        }
-        for (Map.Entry<Integer, List<PacketPayload>> e : targetVariants.entrySet())
-        {
-            tgtVarCount.put(e.getKey(), e.getValue().size());
-        }
-
-        KeyFunction[] passes = {
-            PacketPayload::enrichedSignature,
-            PacketPayload::bodySignature,
-            p -> p.structuralSignature().toString() + "|C" + p.getCallDescriptors(),
-            PacketPayload::shapeSignature,
-        };
-
-        int prevSize;
-        do
-        {
-            prevSize = sourceToTarget.size();
-
-            // Re-run per-variant structural match with group + partial matching
-            for (Map.Entry<String, Set<Integer>> srcEntry : srcBySig.entrySet())
-            {
-                Set<Integer> tgtIds = tgtBySig.get(srcEntry.getKey());
-                if (tgtIds == null) continue;
-                List<Integer> availSrc = new ArrayList<>(srcEntry.getValue());
-                availSrc.removeAll(matchedSrc);
-                List<Integer> availTgt = new ArrayList<>(tgtIds);
-                availTgt.removeAll(matchedTgt);
-                if (availSrc.isEmpty() || availTgt.isEmpty()) continue;
-                Collections.sort(availSrc);
-                Collections.sort(availTgt);
-                int matchCount = Math.min(availSrc.size(), availTgt.size());
-                for (int j = 0; j < matchCount; j++)
-                {
-                    sourceToTarget.put(availSrc.get(j), availTgt.get(j));
-                    matchedSrc.add(availSrc.get(j));
-                    matchedTgt.add(availTgt.get(j));
-                }
-            }
-
-            // Variant-set fingerprint
-            matchByIndex(srcVarSet, tgtVarSet, sourceToTarget, matchedSrc, matchedTgt);
-
-            for (KeyFunction fn : passes)
-            {
-                matchByKey(srcBest, tgtBest, fn, sourceToTarget, matchedSrc, matchedTgt);
-            }
-
-            Map<String, String> methodMapping = deriveMethodMapping(
-                srcBest, tgtBest, sourceToTarget);
-            if (!methodMapping.isEmpty())
-            {
-                matchByMethodMapping(srcBest, tgtBest, methodMapping,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-
-            // Variant-count-qualified enriched matching
-            for (KeyFunction fn : passes)
-            {
-                matchByKeyWithCount(srcBest, tgtBest, fn, srcVarCount, tgtVarCount,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-
-            for (KeyFunction fn : passes)
-            {
-                groupMatch(srcBest, tgtBest, fn, sourceToTarget, matchedSrc, matchedTgt);
-            }
-
-            for (KeyFunction fn : passes)
-            {
-                partialGroupMatch(srcBest, tgtBest, fn,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-        }
-        while (sourceToTarget.size() > prevSize);
-
-        // Cross-structural matching on best payloads
-        KeyFunction[] crossPasses = {
-            PacketPayload::bodySignature,
-            p -> p.getCallDescriptors() + "|" + p.getFieldDescriptors(),
-            p -> p.getCallDescriptors().toString(),
-        };
-        int crossPrev;
-        do
-        {
-            crossPrev = sourceToTarget.size();
-            for (KeyFunction fn : crossPasses)
-            {
-                matchByKey(srcBest, tgtBest, fn,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-            for (KeyFunction fn : crossPasses)
-            {
-                groupMatch(srcBest, tgtBest, fn,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-            for (KeyFunction fn : crossPasses)
-            {
-                partialGroupMatch(srcBest, tgtBest, fn,
-                    sourceToTarget, matchedSrc, matchedTgt);
-            }
-        }
-        while (sourceToTarget.size() > crossPrev);
-
-        // Length + count fallback
-        KeyFunction lengthAndCount = p ->
-            "L" + p.getDeclaredLength() + "|R" + p.readCount();
-        matchByKey(srcBest, tgtBest, lengthAndCount,
-            sourceToTarget, matchedSrc, matchedTgt);
-        partialGroupMatch(srcBest, tgtBest, lengthAndCount,
-            sourceToTarget, matchedSrc, matchedTgt);
-
-        // Length only
-        KeyFunction lengthOnly = p -> "L" + p.getDeclaredLength();
-        matchByKey(srcBest, tgtBest, lengthOnly,
-            sourceToTarget, matchedSrc, matchedTgt);
-        partialGroupMatch(srcBest, tgtBest, lengthOnly,
-            sourceToTarget, matchedSrc, matchedTgt);
-
-        int srcCount = sourceVariants.size();
-        int tgtCount = targetVariants.size();
-        int ambiguous = srcCount - sourceToTarget.size();
-        return new Result(
-            Collections.unmodifiableMap(sourceToTarget),
-            srcCount, tgtCount, ambiguous, 0);
     }
 
     private static String variantSetKey(List<PacketPayload> variants)
@@ -1447,108 +1137,43 @@ public final class PayloadMapper
         return keys;
     }
 
-    private static void matchByIndex(
-        Map<Integer, String> srcKeys, Map<Integer, String> tgtKeys,
-        Map<Integer, Integer> sourceToTarget,
-        Set<Integer> matchedSrc, Set<Integer> matchedTgt)
-    {
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, String> e : srcKeys.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            srcByKey.computeIfAbsent(e.getValue(), k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<Integer, String> e : tgtKeys.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            tgtByKey.computeIfAbsent(e.getValue(), k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                sourceToTarget.put(srcId, tgtId);
-                matchedSrc.add(srcId);
-                matchedTgt.add(tgtId);
-            }
-            else if (srcIds.size() > 1 && srcIds.size() == tgtIds.size())
-            {
-                Collections.sort(srcIds);
-                Collections.sort(tgtIds);
-                for (int i = 0; i < srcIds.size(); i++)
-                {
-                    sourceToTarget.put(srcIds.get(i), tgtIds.get(i));
-                    matchedSrc.add(srcIds.get(i));
-                    matchedTgt.add(tgtIds.get(i));
-                }
-            }
-        }
-    }
-
-    private static void matchByKeyWithCount(
-        Map<Integer, PacketPayload> srcPayloads,
-        Map<Integer, PacketPayload> tgtPayloads,
-        KeyFunction keyFn,
-        Map<Integer, Integer> srcVarCount,
-        Map<Integer, Integer> tgtVarCount,
-        Map<Integer, Integer> sourceToTarget,
-        Set<Integer> matchedSrc, Set<Integer> matchedTgt)
-    {
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            String key = keyFn.apply(e.getValue())
-                + "|VC" + srcVarCount.getOrDefault(e.getKey(), 0);
-            srcByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(e.getKey());
-        }
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            String key = keyFn.apply(e.getValue())
-                + "|VC" + tgtVarCount.getOrDefault(e.getKey(), 0);
-            tgtByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(e.getKey());
-        }
-
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                sourceToTarget.put(srcId, tgtId);
-                matchedSrc.add(srcId);
-                matchedTgt.add(tgtId);
-            }
-        }
-    }
-
     private interface KeyFunction
     {
         String apply(PacketPayload payload);
     }
 
-    private static Map<String, List<Integer>> groupByAll(
-        Map<Integer, PacketPayload> payloads, KeyFunction keyFn)
+    private static Map<String, List<Integer>> groupBy(
+        Map<Integer, PacketPayload> payloads, KeyFunction keyFn,
+        Set<Integer> excluded, Set<Integer> alsoExcluded)
     {
         Map<String, List<Integer>> groups = new LinkedHashMap<>();
         for (Map.Entry<Integer, PacketPayload> entry : payloads.entrySet())
         {
+            if (excluded.contains(entry.getKey()) || alsoExcluded.contains(entry.getKey()))
+            {
+                continue;
+            }
             String key = keyFn.apply(entry.getValue());
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(entry.getKey());
         }
         return groups;
+    }
+
+    private static void matchUniqueGroups(Map<String, List<Integer>> source,
+        Map<String, List<Integer>> target, Map<Integer, Integer> sourceToTarget,
+        Set<Integer> matchedSource, Set<Integer> matchedTarget)
+    {
+        for (Map.Entry<String, List<Integer>> entry : source.entrySet())
+        {
+            List<Integer> sourceIds = entry.getValue();
+            List<Integer> targetIds = target.getOrDefault(entry.getKey(), List.of());
+            if (sourceIds.size() != 1 || targetIds.size() != 1) continue;
+            int sourceId = sourceIds.get(0);
+            int targetId = targetIds.get(0);
+            sourceToTarget.put(sourceId, targetId);
+            matchedSource.add(sourceId);
+            matchedTarget.add(targetId);
+        }
     }
 
     private static String multisetKey(PacketPayload payload)
@@ -1646,7 +1271,7 @@ public final class PayloadMapper
         Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
         matchByMethodMapping(srcPayloads, tgtPayloads, methodMapping,
-            sourceToTarget, matchedSrc, matchedTgt, null);
+            sourceToTarget, matchedSrc, matchedTgt, Collections.emptySet());
     }
 
     private static void matchByMethodMapping(
@@ -1657,40 +1282,13 @@ public final class PayloadMapper
         Set<Integer> matchedSrc, Set<Integer> matchedTgt,
         Set<Integer> excludeSrc)
     {
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            String key = methodBearingSignature(e.getValue(), null);
-            tgtByKey.computeIfAbsent(key, k -> new ArrayList<>())
-                .add(e.getKey());
-        }
-
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            if (excludeSrc != null && excludeSrc.contains(e.getKey()))
-                continue;
-            String key = methodBearingSignature(e.getValue(), methodMapping);
-            srcByKey.computeIfAbsent(key, k -> new ArrayList<>())
-                .add(e.getKey());
-        }
-
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                sourceToTarget.put(srcId, tgtId);
-                matchedSrc.add(srcId);
-                matchedTgt.add(tgtId);
-            }
-        }
+        Map<String, List<Integer>> tgtByKey = groupBy(tgtPayloads,
+            payload -> methodBearingSignature(payload, null),
+            matchedTgt, Collections.emptySet());
+        Map<String, List<Integer>> srcByKey = groupBy(srcPayloads,
+            payload -> methodBearingSignature(payload, methodMapping),
+            matchedSrc, excludeSrc);
+        matchUniqueGroups(srcByKey, tgtByKey, sourceToTarget, matchedSrc, matchedTgt);
     }
 
     private static String methodBearingSignature(
@@ -1851,20 +1449,7 @@ public final class PayloadMapper
         Map<Integer, PacketPayload> srcPayloads,
         Map<Integer, PacketPayload> tgtPayloads,
         Map<Integer, Integer> sourceToTarget,
-        Set<Integer> matchedSrc, Set<Integer> matchedTgt,
-        Map<String, String> externalClassMap)
-    {
-        resolveByRefMapping(srcPayloads, tgtPayloads, sourceToTarget,
-            matchedSrc, matchedTgt, externalClassMap, Collections.emptyMap());
-    }
-
-    private static void resolveByRefMapping(
-        Map<Integer, PacketPayload> srcPayloads,
-        Map<Integer, PacketPayload> tgtPayloads,
-        Map<Integer, Integer> sourceToTarget,
-        Set<Integer> matchedSrc, Set<Integer> matchedTgt,
-        Map<String, String> externalClassMap,
-        Map<String, String> externalRefMap)
+        Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
         Map<String, Set<String>> refCandidates = new LinkedHashMap<>();
         for (Map.Entry<Integer, Integer> match : sourceToTarget.entrySet())
@@ -1875,7 +1460,7 @@ public final class PayloadMapper
             alignRefs(src.getRawCallRefs(), tgt.getRawCallRefs(), refCandidates);
         }
 
-        Map<String, String> refMap = new LinkedHashMap<>(externalRefMap);
+        Map<String, String> refMap = new LinkedHashMap<>();
         for (Map.Entry<String, Set<String>> e : refCandidates.entrySet())
         {
             if (e.getValue().size() == 1)
@@ -1904,11 +1489,6 @@ public final class PayloadMapper
                 classMap.put(e.getKey(), e.getValue().iterator().next());
             }
         }
-        for (Map.Entry<String, String> e : externalClassMap.entrySet())
-        {
-            classMap.putIfAbsent(e.getKey(), e.getValue());
-        }
-
         matchByFullRefTranslation(srcPayloads, tgtPayloads, refMap,
             sourceToTarget, matchedSrc, matchedTgt);
 
@@ -1944,48 +1524,15 @@ public final class PayloadMapper
         Map<Integer, Integer> sourceToTarget,
         Set<Integer> matchedSrc, Set<Integer> matchedTgt)
     {
-        Map<String, List<Integer>> tgtByRefKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            PacketPayload p = e.getValue();
-            String key = p.getRawFieldRefs().toString() + "|"
-                + p.getRawCallRefs().toString();
-            tgtByRefKey.computeIfAbsent(key, k -> new ArrayList<>())
-                .add(e.getKey());
-        }
-
-        Map<String, List<Integer>> srcByTranslated = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            String translated = translateRefs(
-                e.getValue().getRawFieldRefs(),
-                e.getValue().getRawCallRefs(), refMap);
-            if (translated != null)
-            {
-                srcByTranslated.computeIfAbsent(translated, k -> new ArrayList<>())
-                    .add(e.getKey());
-            }
-        }
-
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByTranslated.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByRefKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                if (!matchedSrc.contains(srcId) && !matchedTgt.contains(tgtId))
-                {
-                    sourceToTarget.put(srcId, tgtId);
-                    matchedSrc.add(srcId);
-                    matchedTgt.add(tgtId);
-                }
-            }
-        }
+        Map<String, List<Integer>> targetByRef = groupBy(tgtPayloads,
+            payload -> payload.getRawFieldRefs() + "|" + payload.getRawCallRefs(),
+            matchedTgt, Collections.emptySet());
+        Map<String, List<Integer>> sourceByRef = groupBy(srcPayloads,
+            payload -> translateRefs(payload.getRawFieldRefs(),
+                payload.getRawCallRefs(), refMap),
+            matchedSrc, Collections.emptySet());
+        matchUniqueGroups(sourceByRef, targetByRef,
+            sourceToTarget, matchedSrc, matchedTgt);
     }
 
     private static String translateRefs(List<String> fieldRefs,
@@ -2139,46 +1686,16 @@ public final class PayloadMapper
     {
         if (classMap.isEmpty()) return;
 
-        Map<String, List<Integer>> tgtByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : tgtPayloads.entrySet())
-        {
-            if (matchedTgt.contains(e.getKey())) continue;
-            String struct = e.getValue().shapeSignature();
-            String classSeq = nativeClassSequence(e.getValue());
-            tgtByKey.computeIfAbsent(struct + "||" + classSeq,
-                k -> new ArrayList<>()).add(e.getKey());
-        }
-
-        Map<String, List<Integer>> srcByKey = new LinkedHashMap<>();
-        for (Map.Entry<Integer, PacketPayload> e : srcPayloads.entrySet())
-        {
-            if (matchedSrc.contains(e.getKey())) continue;
-            String translated = translatedClassSequence(e.getValue(), classMap);
-            if (translated != null)
-            {
-                String struct = e.getValue().shapeSignature();
-                srcByKey.computeIfAbsent(struct + "||" + translated,
-                    k -> new ArrayList<>()).add(e.getKey());
-            }
-        }
-
-        for (Map.Entry<String, List<Integer>> srcEntry : srcByKey.entrySet())
-        {
-            List<Integer> srcIds = srcEntry.getValue();
-            List<Integer> tgtIds = tgtByKey.getOrDefault(
-                srcEntry.getKey(), Collections.emptyList());
-            if (srcIds.size() == 1 && tgtIds.size() == 1)
-            {
-                int srcId = srcIds.get(0);
-                int tgtId = tgtIds.get(0);
-                if (!matchedSrc.contains(srcId) && !matchedTgt.contains(tgtId))
-                {
-                    sourceToTarget.put(srcId, tgtId);
-                    matchedSrc.add(srcId);
-                    matchedTgt.add(tgtId);
-                }
-            }
-        }
+        Map<String, List<Integer>> targetByClass = groupBy(tgtPayloads,
+            payload -> payload.shapeSignature() + "||" + nativeClassSequence(payload),
+            matchedTgt, Collections.emptySet());
+        Map<String, List<Integer>> sourceByClass = groupBy(srcPayloads,
+            payload -> {
+                String translated = translatedClassSequence(payload, classMap);
+                return translated == null ? null : payload.shapeSignature() + "||" + translated;
+            }, matchedSrc, Collections.emptySet());
+        matchUniqueGroups(sourceByClass, targetByClass,
+            sourceToTarget, matchedSrc, matchedTgt);
     }
 
     private static String nativeClassSequence(PacketPayload p)

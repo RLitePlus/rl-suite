@@ -3,6 +3,7 @@ package dev.rl.suite;
 import dev.rl.suite.packet.PacketProfileMode;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 public final class TransformConfig
@@ -16,6 +17,7 @@ public final class TransformConfig
     private final long expectedCondySites;
     private final PacketProfileMode packetProfileMode;
     private final boolean packetProfileExplicit;
+    private final Path semanticMap;
 
     private TransformConfig(Builder builder)
     {
@@ -29,6 +31,7 @@ public final class TransformConfig
         this.packetProfileMode = Objects.requireNonNull(builder.packetProfileMode,
             "packetProfileMode");
         this.packetProfileExplicit = builder.packetProfileExplicit;
+        this.semanticMap = builder.semanticMap;
     }
 
     public Path getInput()
@@ -82,6 +85,11 @@ public final class TransformConfig
         return packetProfileExplicit;
     }
 
+    public Optional<Path> getSemanticMap()
+    {
+        return Optional.ofNullable(semanticMap);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -98,6 +106,7 @@ public final class TransformConfig
         private long expectedCondySites = 3L;
         private PacketProfileMode packetProfileMode = PacketProfileMode.OSRS_239;
         private boolean packetProfileExplicit;
+        private Path semanticMap;
 
         public Builder input(Path input)
         {
@@ -162,6 +171,12 @@ public final class TransformConfig
             this.packetProfileMode = Objects.requireNonNull(packetProfileMode,
                 "packetProfileMode");
             this.packetProfileExplicit = true;
+            return this;
+        }
+
+        public Builder semanticMap(Path semanticMap)
+        {
+            this.semanticMap = Objects.requireNonNull(semanticMap, "semanticMap");
             return this;
         }
 

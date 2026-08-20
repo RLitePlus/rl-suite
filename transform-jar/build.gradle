@@ -5,12 +5,12 @@ base {
 }
 
 dependencies {
-    // api, not implementation: packet-analysis compiles against ASM types
-    // exposed by JarArchive and ClassUnit.
+    // Core/tree types are exposed by JarArchive and ClassUnit.
     api "org.ow2.asm:asm:${asmVersion}"
     api "org.ow2.asm:asm-tree:${asmVersion}"
-    api "org.ow2.asm:asm-commons:${asmVersion}"
-    api "org.ow2.asm:asm-analysis:${asmVersion}"
+    implementation "org.ow2.asm:asm-commons:${asmVersion}"
+    implementation "org.ow2.asm:asm-analysis:${asmVersion}"
+    implementation "org.vineflower:vineflower:1.11.2"
 }
 
 // Executable fat JAR, replacing maven-shade-plugin. Attached as a classifier

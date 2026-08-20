@@ -246,7 +246,7 @@ public final class PacketTableReader
         }
     }
 
-    private static Candidate parseAssignment(String owner, String descriptor, FieldInsnNode put)
+    static Candidate parseAssignment(String owner, String descriptor, FieldInsnNode put)
     {
         AbstractInsnNode invokeNode = previousExecutable(put);
         if (!(invokeNode instanceof MethodInsnNode))
@@ -362,10 +362,10 @@ public final class PacketTableReader
         return null;
     }
 
-    private static final class Candidate
+    static final class Candidate
     {
-        private final int id;
-        private final int length;
+        final int id;
+        final int length;
         private final FieldKey field;
 
         private Candidate(int id, int length, FieldKey field)

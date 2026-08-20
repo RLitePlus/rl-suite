@@ -38,7 +38,8 @@ final class SymbolMapping
     }
 
     static SymbolMapping structural(SymbolTable symbols, HierarchyIndex hierarchy,
-                                    RenamePolicy policy, Map<FieldKey, String> fieldOverrides)
+                                    RenamePolicy policy, Map<FieldKey, String> fieldOverrides,
+                                    SemanticMap semanticMap)
     {
         Set<String> annotationScope = new LinkedHashSet<>();
         Map<String, String> classes = new LinkedHashMap<>();
@@ -50,7 +51,17 @@ final class SymbolMapping
             }
             if (policy.renameClass(entry.name()))
             {
-                classes.put(entry.name(), policy.className(entry.name()));
+                String semanticName = semanticMap.getClasses().get(entry.name());
+                classes.put(entry.name(), semanticName == null
+                    ? policy.className(entry.name()) : semanticName);
+            }
+        }
+        for (String originalName : semanticMap.getClasses().keySet())
+        {
+            if (!classes.containsKey(originalName))
+            {
+                throw new TransformException("Semantic class mapping does not identify an eligible declaration: "
+                    + originalName);
             }
         }
 
@@ -84,7 +95,15 @@ final class SymbolMapping
         {
             FieldKey key = entry.key();
             String generated = "field" + fieldIndex++;
-            String override = fieldOverrides.get(key);
+            String packetOverride = fieldOverrides.get(key);
+            String semanticOverride = semanticMap.getFields().get(key);
+            if (packetOverride != null && semanticOverride != null
+                && !packetOverride.equals(semanticOverride))
+            {
+                throw new TransformException("Conflicting packet and semantic field names for "
+                    + key + ": " + packetOverride + " vs " + semanticOverride);
+            }
+            String override = semanticOverride == null ? packetOverride : semanticOverride;
             if (override != null)
             {
                 validateUnqualifiedName(override, "field override for " + key);
@@ -98,6 +117,14 @@ final class SymbolMapping
             if (!fields.containsKey(key))
             {
                 throw new TransformException("Field-name override does not identify an eligible declaration: "
+                    + key);
+            }
+        }
+        for (FieldKey key : semanticMap.getFields().keySet())
+        {
+            if (!fields.containsKey(key))
+            {
+                throw new TransformException("Semantic field mapping does not identify an eligible declaration: "
                     + key);
             }
         }
@@ -157,9 +184,37 @@ final class SymbolMapping
             {
                 name = "method" + singletonIndex++;
             }
+            String semanticName = null;
+            for (MethodKey key : family.members())
+            {
+                String candidate = semanticMap.getMethods().get(key);
+                if (candidate == null)
+                {
+                    continue;
+                }
+                validateUnqualifiedName(candidate, "semantic method name for " + key);
+                if (semanticName != null && !semanticName.equals(candidate))
+                {
+                    throw new TransformException("Conflicting semantic names in virtual method family: "
+                        + semanticName + " vs " + candidate + " at " + key);
+                }
+                semanticName = candidate;
+            }
+            if (semanticName != null)
+            {
+                name = semanticName;
+            }
             for (MethodKey key : family.members())
             {
                 methods.put(key, name);
+            }
+        }
+        for (MethodKey key : semanticMap.getMethods().keySet())
+        {
+            if (!methods.containsKey(key))
+            {
+                throw new TransformException("Semantic method mapping does not identify an eligible declaration: "
+                    + key);
             }
         }
 
@@ -171,6 +226,7 @@ final class SymbolMapping
             annotationAttributes, stats);
         mapping.validatePreservedBridges(symbols, hierarchy, policy);
         mapping.validateDeclarationCollisions(symbols);
+        mapping.validateNoIntroducedOverrides(symbols, hierarchy);
         return mapping;
     }
 
@@ -328,6 +384,43 @@ final class SymbolMapping
             if (!methodSignatures.computeIfAbsent(owner, ignored -> new LinkedHashSet<>()).add(signature))
             {
                 throw new TransformException("Mapped method collision in " + owner + ": " + signature);
+            }
+        }
+    }
+
+    private void validateNoIntroducedOverrides(SymbolTable symbols, HierarchyIndex hierarchy)
+    {
+        Map<String, List<SymbolTable.MethodEntry>> byOwner = new LinkedHashMap<>();
+        for (SymbolTable.MethodEntry entry : symbols.methods())
+        {
+            byOwner.computeIfAbsent(entry.key().getOwner(), ignored -> new ArrayList<>())
+                .add(entry);
+        }
+        for (SymbolTable.MethodEntry entry : symbols.methods())
+        {
+            MethodKey key = entry.key();
+            String outputName = methods.getOrDefault(key, key.getName());
+            String outputDescriptor = mapDescriptor(key.getDescriptor());
+            for (String ancestor : hierarchy.ancestors(key.getOwner()))
+            {
+                for (SymbolTable.MethodEntry inherited : byOwner.getOrDefault(ancestor,
+                    Collections.emptyList()))
+                {
+                    MethodKey inheritedKey = inherited.key();
+                    if (!outputName.equals(methods.getOrDefault(inheritedKey,
+                        inheritedKey.getName()))
+                        || !outputDescriptor.equals(mapDescriptor(inheritedKey.getDescriptor())))
+                    {
+                        continue;
+                    }
+                    if (!key.getName().equals(inheritedKey.getName())
+                        || !key.getDescriptor().equals(inheritedKey.getDescriptor()))
+                    {
+                        throw new TransformException("Semantic mapping would introduce a new inherited method collision: "
+                            + key + " vs " + inheritedKey + " -> " + outputName
+                            + outputDescriptor);
+                    }
+                }
             }
         }
     }
