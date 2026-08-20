@@ -1,0 +1,80 @@
+# format=rl-suite-semantic-map-v1
+# revision=1.12.37-20260819.170454-4
+# input.sha256=3782381e829398fd83179c3da4c17ffdd2e5a09d647b620d2959dbc48c398a5b
+# parent.sha256=18715d37a0b51c995ffaa8ec8d89caffe1c2bfab5598d683f57c5a841213b412
+# source=structural-update(version-package-import)
+# source.commit=4cea48fc258486ddb2e3c1291be6a93b7c1052f2
+# source.sha256=a073dc47d423484808ddf32acce6105cfbc46fa36007f3b51f7f1bb7b7593952
+# source.license=BSD-2-Clause
+# source.runelite.commit=6ea819d
+class	aap	-	-	AccountType
+class	ct	-	-	Player
+class	dj	-	-	PacketWriter
+class	jj	-	-	ServerPacket
+class	jl	-	-	PacketBufferNode
+class	js	-	-	ClientPacket
+class	mj	-	-	Task
+class	op	-	-	ItemComposition
+class	tq	-	-	GameEngine
+class	tz	-	-	MouseHandler
+class	vt	-	-	PlatformInfo
+class	xy	-	-	Buffer
+field	aap	af	Laap;	jagexType
+field	aap	az	Laap;	legacyType
+field	at	lb	Ljava/lang/String;	JX_SESSION_ID
+field	bf	bv	Ljava/lang/String;	JX_CHARACTER_ID
+field	bf	cm	Ljava/lang/String;	JX_DISPLAY_NAME
+field	ch	lz	Ljava/lang/String;	JX_REFRESH_TOKEN
+field	client	ai	Ldj;	packetWriter
+field	client	dk	Ljava/io/File;	runeLiteDir
+field	client	dm	Laap;	accountTypeCheck
+field	client	gr	J	mouseLastPressedTimeMillis
+field	client	hb	I	scriptVmWarningOps
+field	client	kb	Z	graphicsGuard
+field	client	lc	I	heading
+field	client	lw	Lorg/slf4j/Logger;	logger
+field	client	lx	[B	randomDat
+field	client	mz	I	scriptVmMaxOps
+field	client	xv	Z	insecureWriteCredentials
+field	ct	ax	[Ljava/lang/String;	actions
+field	dj	ab	Lyt;	isaacCipher
+field	dj	ag	Lxs;	serverPacketBuffer
+field	dj	as	Ljj;	serverPacket
+field	dj	ax	I	serverPacketLength
+field	jj	fc	I	id
+field	jj	fm	I	length
+field	jl	ac	Lxs;	packetBuffer
+field	jl	as	Ljs;	clientPacket
+field	js	eo	I	length
+field	js	er	I	id
+field	lt	lh	Ljava/lang/String;	JX_ACCESS_TOKEN
+field	mj	ac	Ljava/lang/Object;	objectArgument
+field	mj	ag	Ljava/lang/Object;	result
+field	oe	cz	Lclient;	client
+field	op	eh	[Ljava/lang/String;	groundActions
+field	tz	ag	I	MouseHandler_x
+field	tz	aj	Ltz;	MouseHandler_instance
+field	tz	as	I	MouseHandler_y
+field	tz	ax	J	MouseHandler_lastPressedTimeMillis
+field	tz	ay	I	MouseHandler_idleCycles
+field	vt	ca	Ljava/lang/String;	clientName
+field	xy	aj	[B	array
+field	xy	ay	I	offset
+method	aaf	ae	(Ljava/lang/String;Ljava/lang/Throwable;)V	processError
+method	ab	al	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V	setLoginResponse
+method	ci	ar	(IB)V	setLoginIndex
+method	client	ady	()V	callStackPacker2
+method	client	ia	(Ldj;I)Z	processServerPacket
+method	client	mv	()V	mouseHookLoader
+method	client	np	()V	callStackPacker1
+method	client	uj	(IIIIIILjava/lang/String;Ljava/lang/String;II)V	doAction
+method	client	yo	(J)Ljava/lang/String;	callStackCheck
+method	cx	az	(ILjava/lang/String;Lxo;II)Ljl;	constructChat
+method	dj	ae	(Ljl;I)V	addNode
+method	ef	af	(Ljs;Lyt;B)Ljl;	getPacketBufferNode
+method	eg	af	(Ljava/lang/Throwable;Ljava/lang/String;)Laaf;	newRunException
+method	gp	br	(I)Ljava/lang/String;	callStackCombiner
+method	tq	aw	()V	graphicsTick
+method	vt	ae	(II)Ljava/lang/String;	getDeviceId
+method	vt	az	(Lxy;I)V	write
+method	zj	be	(I)V	getLoginError

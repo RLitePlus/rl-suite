@@ -222,7 +222,8 @@ java -jar transform-jar/build/libs/rl-suite-1.3.1-all.jar \
 ```
 
 The source directory is replaced only after decompilation succeeds. The verified
-deobfuscated JAR is not modified.
+deobfuscated JAR is not modified. This repository's current snapshot is under
+`semantics/injected-client-1.12.37-sources/`.
 
 Options:
 
@@ -328,6 +329,8 @@ java -jar packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar --help
 | `--buffer-infra --jar JAR` | Prints the packet buffer and writer infrastructure: the buffer class and its offset multipliers, `ClientPacket`, `PacketBufferNode`, `PacketWriter` and its ISAAC field. |
 | `--extract-semantic-seed --jar MAPPED --raw-jar RAW --tsv OUT` | Transcribes Devious-style mapping annotations and binds them to the exact raw JAR checksum. |
 | `--update-semantic --old-jar OLD --new-jar NEW --old-map MAP --tsv OUT` | Carries semantic names to a new revision using reciprocal structural matches. Any unresolved entry prevents output. |
+| `--import-version-package --jar JAR --mappings version-package.json --source-commit COMMIT --tsv OUT` | Validates a runtime mapping package against the exact JAR and converts it to native semantic TSV. |
+| `--merge-semantic --jar JAR --maps A.tsv,B.tsv --tsv OUT` | Combines checksum-identical semantic maps, rejecting physical or semantic conflicts. |
 
 Every rule is anchored on something the injector cannot rename — an interface a
 class declares, or an injected public getter — and reads the answer out of the
@@ -388,10 +391,46 @@ every unresolved identity has reviewed evidence.
 
 `data/semantic/anchors/` contains the smaller checksum-bound set that has passed
 that stricter bar: 136 identities at 1.12.15 and 113 identities carried through
-the current 1.12.37 snapshot. These are valid semantic maps for analysis, but
-they are deliberately not presented as complete replacements for the 4,226-row
-pre-reset map. Reviewed exceptional transitions live in
-`data/semantic/overrides/`.
+the current 1.12.37 snapshot by the structural updater. The current map merges
+those with 68 additional non-conflicting identities propagated from an external
+runtime mapping package, for 181 total. These are valid semantic maps for analysis, but they are deliberately
+not presented as complete replacements for the 4,226-row pre-reset map.
+Reviewed exceptional transitions live in `data/semantic/overrides/`.
+
+### Importing runtime mappings
+
+The bridge is data-driven; rl-suite does not copy or run the source mapper.
+It validates a generated runtime package against its exact source JAR,
+converts it to native TSV, advances it with the existing fail-closed updater,
+then merges it with independently reviewed target anchors:
+
+```shell
+HOOKS=packet-analysis/build/libs/rl-suite-hooks-1.3.1-all.jar
+SOURCE_JAR=/path/to/injected-client-1.12.35.jar
+TARGET_JAR=/path/to/injected-client-1.12.37-20260819.170454-4.jar
+
+java -jar "$HOOKS" --import-version-package \
+  --jar "$SOURCE_JAR" --mappings version-package.json \
+  --source-commit 4cea48fc258486ddb2e3c1291be6a93b7c1052f2 \
+  --tsv data/semantic/anchors/1.12.35-version-package.tsv
+
+java -jar "$HOOKS" --update-semantic \
+  --old-jar "$SOURCE_JAR" --new-jar "$TARGET_JAR" \
+  --old-map data/semantic/anchors/1.12.35-version-package.tsv \
+  --anchors data/semantic/anchors/1.12.37-SNAPSHOT-reviewed.tsv \
+  --overrides data/semantic/overrides/1.12.35-version-package-to-1.12.36.tsv \
+  --tsv data/semantic/anchors/1.12.37-SNAPSHOT-version-package.tsv \
+  --revision 1.12.37-20260819.170454-4
+
+java -jar "$HOOKS" --merge-semantic --jar "$TARGET_JAR" \
+  --maps data/semantic/anchors/1.12.37-SNAPSHOT-reviewed.tsv,data/semantic/anchors/1.12.37-SNAPSHOT-version-package.tsv \
+  --tsv data/semantic/anchors/1.12.37-SNAPSHOT.tsv
+```
+
+Four RuneLite-injected fields cross revisions through their stable scalar
+`@Named` annotations. The two explicit drops are fields removed in 1.12.36;
+all other uncertainty still prevents output. The imported mapping data remains
+subject to the BSD 2-Clause terms reproduced below.
 
 `--overrides` accepts eight tab-separated columns with comments beginning `#`:
 `kind`, old owner/name/descriptor, `map` or `drop`, and new owner/name/descriptor.
@@ -440,3 +479,37 @@ and the result is verified twice before it is written.
 
 Two modules: `transform-jar` holds the pipeline and CLI, `packet-analysis` holds
 the packet extraction and cross-revision mapping.
+
+## Third-party mapping attribution
+
+The imported mapping rows under `data/semantic/` are derived from
+[Solace](https://github.com/kolief/solace) mapping commit
+`4cea48fc258486ddb2e3c1291be6a93b7c1052f2` and retain its BSD 2-Clause terms:
+
+```text
+BSD 2-Clause License
+
+Copyright (c) 2026, Solace contributors
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```

@@ -2,6 +2,7 @@ package dev.rl.suite.packet;
 
 import dev.rl.suite.model.ClassUnit;
 import dev.rl.suite.model.JarArchive;
+import dev.rl.suite.pass.NamedAnnotationStripper;
 import dev.rl.suite.util.Hashing;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -152,7 +153,16 @@ final class SemanticUpdater
         }
         metadata.put("input.sha256", Hashing.sha256(newJar));
         metadata.put("parent.sha256", actualOldHash);
-        metadata.put("source", "structural-update");
+        String parentSource = oldMap.metadata().get("source");
+        metadata.put("source", parentSource == null ? "structural-update"
+            : "structural-update(" + parentSource + ")");
+        for (Map.Entry<String, String> source : oldMap.metadata().entrySet())
+        {
+            if (source.getKey().startsWith("source."))
+            {
+                metadata.put(source.getKey(), source.getValue());
+            }
+        }
         return new Result(new SemanticMap(metadata, entries), Collections.emptyList(),
             classMatches.size());
     }
@@ -999,6 +1009,24 @@ final class SemanticUpdater
         if (source == null)
         {
             return null;
+        }
+        String named = SemanticSeedExtractor.annotationValue(source,
+            NamedAnnotationStripper.NAMED_DESCRIPTOR, "value");
+        if (entry.semantic.equals(named))
+        {
+            List<FieldNode> namedTargets = newClass.fields.stream()
+                .filter(field -> named.equals(SemanticSeedExtractor.annotationValue(field,
+                    NamedAnnotationStripper.NAMED_DESCRIPTOR, "value")))
+                .toList();
+            if (namedTargets.size() == 1)
+            {
+                FieldNode target = namedTargets.get(0);
+                return new Member(target.name, target.desc);
+            }
+            if (!namedTargets.isEmpty())
+            {
+                return null;
+            }
         }
         if (entry.owner.equals(newClass.name))
         {

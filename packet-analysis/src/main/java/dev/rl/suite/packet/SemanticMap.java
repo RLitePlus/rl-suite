@@ -12,6 +12,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /** The deliberately small, tool-neutral semantic-name interchange format. */
 final class SemanticMap
@@ -151,6 +153,65 @@ final class SemanticMap
         {
             Files.deleteIfExists(temporary);
         }
+    }
+
+    static SemanticMap merge(List<SemanticMap> maps, String revision, String inputHash)
+    {
+        Map<String, Entry> physical = new LinkedHashMap<>();
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("format", FORMAT);
+        if (revision != null)
+        {
+            metadata.put("revision", revision);
+        }
+        metadata.put("input.sha256", inputHash);
+        metadata.put("source", "merged-semantic-maps");
+        Set<String> sources = new TreeSet<>();
+        for (SemanticMap map : maps)
+        {
+            String source = map.metadata.get("source");
+            if (source != null)
+            {
+                String commit = map.metadata.get("source.commit");
+                sources.add(source + (commit == null ? "" : "@" + commit));
+            }
+            for (Entry entry : map.entries)
+            {
+                Entry previous = physical.putIfAbsent(entry.key(), entry);
+                if (previous != null && !previous.equals(entry))
+                {
+                    throw new IllegalArgumentException("physical target conflict: " + entry.key());
+                }
+            }
+        }
+        if (!sources.isEmpty())
+        {
+            metadata.put("sources", String.join(",", sources));
+        }
+        List<Entry> entries = new ArrayList<>(physical.values());
+        SemanticMap merged = new SemanticMap(metadata, entries);
+        Map<String, String> classSemantics = new LinkedHashMap<>();
+        for (Entry entry : entries)
+        {
+            if (entry.kind.equals("class"))
+            {
+                classSemantics.put(entry.owner, entry.semantic);
+            }
+        }
+        Map<String, Entry> semantic = new LinkedHashMap<>();
+        for (Entry entry : entries)
+        {
+            String owner = entry.kind.equals("class") ? ""
+                : classSemantics.getOrDefault(entry.owner, "@" + entry.owner) + "\t";
+            String key = entry.kind + "\t" + owner + entry.semantic
+                + (entry.kind.equals("method") ? "\t" + entry.descriptor : "");
+            Entry previous = semantic.putIfAbsent(key, entry);
+            if (previous != null && !previous.key().equals(entry.key()))
+            {
+                throw new IllegalArgumentException("semantic target conflict: " + key);
+            }
+        }
+        return merged;
     }
 
     private void appendMetadata(StringBuilder text, String key)

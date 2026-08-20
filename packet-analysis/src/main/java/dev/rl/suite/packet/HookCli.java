@@ -69,6 +69,14 @@ public final class HookCli
         {
             System.exit(updateSemantic(options));
         }
+        else if (options.containsKey("import-version-package"))
+        {
+            System.exit(importVersionPackage(options));
+        }
+        else if (options.containsKey("merge-semantic"))
+        {
+            System.exit(mergeSemantic(options));
+        }
         else
         {
             usage();
@@ -465,6 +473,71 @@ public final class HookCli
         return 0;
     }
 
+    private static int importVersionPackage(Map<String, String> options) throws IOException
+    {
+        Path jar = resolveJar(required(options, "jar").toString());
+        Path output = required(options, "tsv");
+        SemanticMap map = VersionPackageSemanticImporter.extract(required(options, "mappings"), jar,
+            options.get("source-commit"));
+        map.write(output);
+        System.out.println("wrote " + map.entries().size() + " semantic entries to " + output);
+        return 0;
+    }
+
+    private static int mergeSemantic(Map<String, String> options) throws IOException
+    {
+        Path jar = resolveJar(required(options, "jar").toString());
+        String inputHash = Hashing.sha256(jar);
+        String value = options.get("maps");
+        if (value == null || value.isBlank())
+        {
+            throw new IllegalArgumentException("Missing --maps");
+        }
+        List<SemanticMap> maps = new ArrayList<>();
+        String revision = options.get("revision");
+        for (String name : value.split(",", -1))
+        {
+            name = name.trim();
+            if (name.isEmpty())
+            {
+                throw new IllegalArgumentException("--maps contains an empty path");
+            }
+            SemanticMap map = SemanticMap.read(Paths.get(name));
+            if (!inputHash.equals(map.metadata().get("input.sha256")))
+            {
+                throw new IOException(name + ": input.sha256 does not match " + jar);
+            }
+            String mapRevision = map.metadata().get("revision");
+            if (revision == null)
+            {
+                revision = mapRevision;
+            }
+            else if (mapRevision != null && !revision.equals(mapRevision))
+            {
+                throw new IOException(name + ": revision " + mapRevision
+                    + " does not match " + revision);
+            }
+            maps.add(map);
+        }
+        if (maps.size() < 2)
+        {
+            throw new IllegalArgumentException("--maps requires at least two comma-separated files");
+        }
+        SemanticMap merged;
+        try
+        {
+            merged = SemanticMap.merge(maps, revision, inputHash);
+        }
+        catch (IllegalArgumentException e)
+        {
+            throw new IOException("cannot merge semantic maps: " + e.getMessage(), e);
+        }
+        Path output = required(options, "tsv");
+        merged.write(output);
+        System.out.println("wrote " + merged.entries().size() + " merged semantic entries to " + output);
+        return 0;
+    }
+
     // ---- shared ---------------------------------------------------------
 
     /** Reads a key under either mapping schema: the version package's or the canonical file's. */
@@ -557,7 +630,8 @@ public final class HookCli
     static Map<String, String> parse(String[] args)
     {
         Set<String> flags = Set.of("derive", "verify", "buffer-infra",
-            "extract-semantic-seed", "update-semantic", "help");
+            "extract-semantic-seed", "update-semantic", "import-version-package",
+            "merge-semantic", "help");
         Map<String, String> options = new LinkedHashMap<>();
         for (int index = 0; index < args.length; index++)
         {
@@ -604,5 +678,10 @@ public final class HookCli
         System.err.println("                    --tsv OUT [--revision REV --anchors TARGET.tsv]");
         System.err.println("                    [--overrides OVERRIDES.tsv]");
         System.err.println("      Propagates semantic names; publishes nothing on an ambiguous entry.");
+        System.err.println("  --import-version-package --jar JAR --mappings version-package.json --tsv OUT");
+        System.err.println("                   --source-commit COMMIT");
+        System.err.println("      Validates and converts a runtime mapping package into native TSV.");
+        System.err.println("  --merge-semantic --jar JAR --maps A.tsv,B.tsv --tsv OUT [--revision REV]");
+        System.err.println("      Merges maps for the same exact JAR; rejects every conflict.");
     }
 }

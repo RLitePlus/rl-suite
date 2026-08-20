@@ -170,12 +170,12 @@ final class SemanticSeedExtractor
         }
     }
 
-    private static boolean obfuscatedClass(String name)
+    static boolean obfuscatedClass(String name)
     {
         return name.matches("[a-z]{1,3}");
     }
 
-    private static boolean obfuscatedMember(String name)
+    static boolean obfuscatedMember(String name)
     {
         return name != null && name.length() <= 3 && !name.equals("run") && !name.equals("add");
     }
@@ -241,7 +241,7 @@ final class SemanticSeedExtractor
         return slash < 0 ? name : name.substring(slash + 1);
     }
 
-    private static String annotationValue(Object owner, String descriptor, String key)
+    static String annotationValue(Object owner, String descriptor, String key)
     {
         List<AnnotationNode> visible;
         List<AnnotationNode> invisible;
